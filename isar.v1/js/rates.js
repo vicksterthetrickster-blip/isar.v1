@@ -150,6 +150,7 @@ async function fetchLiveRates(manual) {
 
     ratesRefreshing = false;
     setRatesRefreshingUI(false);
+    recordDailySnapshot();
     renderPortfolioValue();
     renderGraph();
     refreshAccountViews();

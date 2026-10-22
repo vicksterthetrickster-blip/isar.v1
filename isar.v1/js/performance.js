@@ -91,14 +91,15 @@ function renderPerfSummary(points, clipped) {
         change.style.color = '#71717A';
         return;
     }
+    // The total shows everything; the change is like-for-like (lfl).
     const first = points[0], last = points[points.length - 1];
-    const up = last.value >= first.value;
+    const up = last.lfl >= first.lfl;
     asOf.innerText = graphTitle(activeTimeframe, activeTimeframe, clipped, points).replace(activeTimeframe + ' (', '').replace(')', '') || ('As of ' + formatGraphDate(last.t, true));
     asOf.innerText = 'As of ' + formatGraphDate(last.t, true) + (clipped ? ' · since ' + formatGraphDate(first.t, false) : '');
     total.innerText = meta.symbol + formatMoney(last.value);
     change.style.color = up ? '#00FF85' : '#FF4D6D';
-    change.innerText = (up ? '↑ +' : '↓ −') + Math.abs((last.value - first.value) / first.value * 100).toFixed(1) + '% (' +
-        (up ? '+' : '−') + meta.symbol + formatMoney(Math.abs(last.value - first.value)) + ' ' + activeCurrency + ') over ' + activeTimeframe.toLowerCase();
+    change.innerText = (up ? '↑ +' : '↓ −') + Math.abs((last.lfl - first.lfl) / first.lfl * 100).toFixed(1) + '% (' +
+        (up ? '+' : '−') + meta.symbol + formatMoney(Math.abs(last.lfl - first.lfl)) + ' ' + activeCurrency + ') over ' + activeTimeframe.toLowerCase();
 }
 
 // While dragging: show the value/date under the finger instead of the window summary.
@@ -106,19 +107,21 @@ function renderPerfScrub(points, idx) {
     const meta = CURRENCY_META[activeCurrency];
     const p = points[idx];
     const first = points[0];
-    const up = p.value >= first.value;
+    const up = p.lfl >= first.lfl;
     document.getElementById('perf-asof').innerText = formatGraphDate(p.t, true);
     document.getElementById('perf-total').innerText = meta.symbol + formatMoney(p.value);
     const change = document.getElementById('perf-change');
     change.style.color = up ? '#00FF85' : '#FF4D6D';
-    change.innerText = (up ? '↑ +' : '↓ −') + Math.abs((p.value - first.value) / first.value * 100).toFixed(1) + '% since ' + formatGraphDate(first.t, false);
+    change.innerText = (up ? '↑ +' : '↓ −') + Math.abs((p.lfl - first.lfl) / first.lfl * 100).toFixed(1) + '% since ' + formatGraphDate(first.t, false);
 }
 
 function renderPerfStats(points) {
     const meta = CURRENCY_META[activeCurrency];
-    const steps = computeStepStats(points);
-    const drawdown = computeDrawdown(points);
-    const annualized = computeAnnualized(points);
+    // Stats use the like-for-like totals, so a newly linked bank isn't counted as a gain.
+    const base = points.map(p => ({ t: p.t, value: p.lfl }));
+    const steps = computeStepStats(base);
+    const drawdown = computeDrawdown(base);
+    const annualized = computeAnnualized(base);
 
     const bestV = document.getElementById('perf-best-value'), bestS = document.getElementById('perf-best-sub');
     const worstV = document.getElementById('perf-worst-value'), worstS = document.getElementById('perf-worst-sub');
@@ -185,6 +188,7 @@ function renderPerformanceScreen() {
     renderPerfTimeframes();
     renderPerfSummary(points, clipped);
     perfLayout = drawGraph(points, { line: 'perf-graph-line', area: 'perf-graph-area', svg: 'perf-graph-svg', labels: 'perf-graph-labels', empty: 'perf-graph-empty', pct: null }, { w: 320, h: 150 });
+    drawAddedMarkers('perf-graph-markers', perfLayout, getAddedMarkers(ACCOUNTS));
     hidePerfScrub();
     renderPerfStats(points);
     renderPerfContrib();

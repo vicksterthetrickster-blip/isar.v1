@@ -172,7 +172,8 @@ function renderAccountDetail() {
         ? 'Shown in ' + code
         : 'Shown in ' + code + ', using each date\'s exchange rate';
     renderAccountTimeframes();
-    drawGraph(points, { line: 'acct-graph-line', area: 'acct-graph-area', svg: 'acct-graph-svg', labels: 'acct-graph-labels', empty: 'acct-graph-empty', pct: 'acct-graph-pct' });
+    const layout = drawGraph(points, { line: 'acct-graph-line', area: 'acct-graph-area', svg: 'acct-graph-svg', labels: 'acct-graph-labels', empty: 'acct-graph-empty', pct: 'acct-graph-pct' });
+    drawAddedMarkers('acct-graph-markers', layout, getAddedMarkers([account]));
 
     // Details
     const totalAUD = getPortfolioTotalAUD();

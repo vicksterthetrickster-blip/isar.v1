@@ -42,8 +42,9 @@ function drawGraph(points, ids, size) {
     line.setAttribute('d', path);
     area.setAttribute('d', path + ' L ' + W + ' ' + H + ' L 0 ' + H + ' Z');
 
-    // Change over the visible window, in the selected currency.
-    const first = points[0].value, last = points[points.length - 1].value;
+    // Change over the visible window, in the selected currency. Uses the like-for-like
+    // totals (lfl) so an account added mid-window doesn't count as growth.
+    const first = points[0].lfl, last = points[points.length - 1].lfl;
     const up = last >= first;
     const color = up ? '#00FF85' : '#FF4D6D';
     svg.style.color = color;
@@ -61,6 +62,32 @@ function drawGraph(points, ids, size) {
     return { points, t0, t1, W, H, TOP, BOTTOM, xOf, yOf };
 }
 
+// "[Bank] added" markers for linked accounts that have an addedDate, oldest first.
+function getAddedMarkers(accounts) {
+    return accounts
+        .filter(a => a.userLinked && a.addedDate)
+        .map(a => ({ t: Date.parse(a.addedDate + 'T00:00:00Z'), label: a.name + ' added' }))
+        .filter(m => !isNaN(m.t))
+        .sort((a, b) => a.t - b.t);
+}
+
+// Draws a dashed line + label for each marker inside the window `layout` (from drawGraph)
+// into the SVG group `groupId`. Labels close together are stacked so they don't overlap.
+function drawAddedMarkers(groupId, layout, markers) {
+    const g = document.getElementById(groupId);
+    if (!g) return;
+    const inWindow = layout.points.length ? markers.filter(m => m.t >= layout.t0 && m.t <= layout.t1) : [];
+    let lastX = -Infinity, row = 0;
+    g.innerHTML = inWindow.map(m => {
+        const x = (m.t - layout.t0) / (layout.t1 - layout.t0) * layout.W;
+        row = x - lastX < 70 ? row + 1 : 0;
+        lastX = x;
+        const nearRight = x > layout.W * 0.7;
+        return '<line x1="' + x.toFixed(1) + '" x2="' + x.toFixed(1) + '" y1="0" y2="' + layout.H + '" stroke="#71717A" stroke-width="1" stroke-dasharray="3,3" vector-effect="non-scaling-stroke"/>' +
+            '<text x="' + (nearRight ? x - 3 : x + 3).toFixed(1) + '" y="' + (7 + row * 9) + '" font-size="8" fill="#A1A1AA" text-anchor="' + (nearRight ? 'end' : 'start') + '">' + escapeHTML(m.label) + '</text>';
+    }).join('');
+}
+
 function graphTitle(prefix, label, clipped, points) {
     return prefix + ' (' + label + (clipped && points.length ? ' · since ' + formatGraphDate(points[0].t, false) : '') + ')';
 }
@@ -68,7 +95,8 @@ function graphTitle(prefix, label, clipped, points) {
 function renderGraph() {
     const { points, clipped } = getHistorySeries(activeCurrency, activeTimeframe);
     document.getElementById('timeframe-title').innerText = graphTitle('Performance', activeTimeframe, clipped, points);
-    drawGraph(points, { line: 'graph-line', area: 'graph-area', svg: 'graph-svg', labels: 'graph-labels', empty: 'graph-empty', pct: 'timeframe-pct' });
+    const layout = drawGraph(points, { line: 'graph-line', area: 'graph-area', svg: 'graph-svg', labels: 'graph-labels', empty: 'graph-empty', pct: 'timeframe-pct' });
+    drawAddedMarkers('graph-markers', layout, getAddedMarkers(ACCOUNTS));
 }
 
 // Shared by the home card and the performance screen, which both plot activeTimeframe.

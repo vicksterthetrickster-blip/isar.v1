@@ -8,6 +8,13 @@
 // Bump the version in the key if the saved shape ever changes incompatibly.
 const STORAGE_KEY = 'isar.savedData.v1';
 
+// A saved snapshot is only used if it has a date and both balances and rates.
+function isValidSnapshot(s) {
+    return !!s && typeof s.date === 'string' &&
+        !!s.balances && typeof s.balances === 'object' &&
+        !!s.rates && typeof s.rates === 'object';
+}
+
 function loadSavedData() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -15,10 +22,12 @@ function loadSavedData() {
         return {
             linkedAccounts: Array.isArray(data.linkedAccounts) ? data.linkedAccounts : [],
             settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
-            displayCurrency: typeof data.displayCurrency === 'string' ? data.displayCurrency : null
+            displayCurrency: typeof data.displayCurrency === 'string' ? data.displayCurrency : null,
+            // Daily net-worth records (see snapshots.js), same shape as HISTORY records.
+            snapshots: Array.isArray(data.snapshots) ? data.snapshots.filter(isValidSnapshot) : []
         };
     } catch (e) {
-        return { linkedAccounts: [], settings: {}, displayCurrency: null };
+        return { linkedAccounts: [], settings: {}, displayCurrency: null, snapshots: [] };
     }
 }
 

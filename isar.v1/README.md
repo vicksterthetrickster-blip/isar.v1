@@ -19,11 +19,12 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 | `js/storage.js` | Saving/loading what the user changes (localStorage) |
 | `js/state.js` | What the app is currently showing (selected currency, timeframe, open screens) |
 | `js/history.js` | Turns history records into graph data |
+| `js/snapshots.js` | Saves one net-worth snapshot per day (localStorage) |
 | `js/graph.js` | Draws the line graphs |
 | `js/rates.js` | Currency conversion, live exchange rates, net worth card |
 | `js/accounts.js` | Accounts tab and account detail screen |
 | `js/cards.js` | Cards tab |
-| `js/connect.js` | Connect tab: bank search and linking |
+| `js/connect.js` | Connect tab: bank search and linking (incl. the mock account history, `generateMockAccountHistory`) |
 | `js/profile.js` | Profile, settings, sign out |
 | `js/performance.js` | Performance screen |
 | `js/main.js` | Tab switching and start-up |

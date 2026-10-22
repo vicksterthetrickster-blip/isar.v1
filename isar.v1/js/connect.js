@@ -112,6 +112,7 @@ function renderConnectTab() {
 
 // Everything that shows accounts, redrawn after one is added or removed.
 function refreshAfterAccountChange() {
+    recordDailySnapshot();
     renderAccounts();
     renderConnectTab();
     renderPortfolioValue();
@@ -123,13 +124,51 @@ function refreshAfterAccountChange() {
 function saveLinkedAccounts() {
     SAVED.linkedAccounts = ACCOUNTS.filter(a => a.userLinked).map(a => ({
         id: a.id, bankName: a.bankName, name: a.name, type: a.type,
-        letter: a.letter, color: a.color, balance: a.balance, currency: a.currency
+        letter: a.letter, color: a.color, balance: a.balance, currency: a.currency,
+        addedDate: a.addedDate, history: a.history
     }));
     saveData();
 }
 
+// ===== MOCK DATA: replaced by the bank provider later =====
+// A real provider (TrueLayer, GoCardless, Plaid) returns an account's past balances
+// or transactions. Until then this invents a believable weekly history, back to the
+// start of the sample HISTORY, that ends exactly at the balance the user typed in.
+// Returns [{ date: 'YYYY-MM-DD', balance }] oldest first, in the account's own currency.
+function generateMockAccountHistory(balance, addedDate) {
+    const start = Date.parse(((typeof HISTORY !== 'undefined' && HISTORY.length) ? HISTORY[0].date : addedDate) + 'T00:00:00Z');
+    const day = new Date(addedDate + 'T00:00:00Z');
+    const history = [];
+    let value = balance;
+    do {
+        history.unshift({ date: day.toISOString().slice(0, 10), balance: Math.round(value * 100) / 100 });
+        value = Math.max(0, value * (1 - (Math.random() * 0.04 - 0.012)));   // a week earlier: usually a little lower
+        day.setUTCDate(day.getUTCDate() - 7);
+    } while (Date.parse(history[0].date + 'T00:00:00Z') > start);    // reach back to (or just before) the start
+    return history;
+}
+
+// Banks linked before addedDate/history existed get them once, then they're saved.
+// The link time is read back from the id ('linked-' + time in base 36).
+function upgradeLinkedAccounts() {
+    let changed = false;
+    ACCOUNTS.filter(a => a.userLinked).forEach(a => {
+        if (!a.addedDate) {
+            const created = parseInt(String(a.id).replace('linked-', ''), 36);
+            a.addedDate = localISODate(isNaN(created) ? new Date() : new Date(created));
+            changed = true;
+        }
+        if (!Array.isArray(a.history)) {
+            a.history = generateMockAccountHistory(a.balance, a.addedDate);
+            changed = true;
+        }
+    });
+    if (changed) saveLinkedAccounts();
+}
+
 function addLinkedAccount(bankName, balance, currency) {
     const bank = findBank(bankName);
+    const addedDate = localISODate(new Date());
     ACCOUNTS.push({
         id: 'linked-' + Date.now().toString(36),
         bankName: bank.name,
@@ -139,6 +178,8 @@ function addLinkedAccount(bankName, balance, currency) {
         color: bank.color,
         balance: balance,
         currency: currency,
+        addedDate: addedDate,
+        history: generateMockAccountHistory(balance, addedDate),
         userLinked: true
     });
     saveLinkedAccounts();

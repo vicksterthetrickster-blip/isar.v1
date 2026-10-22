@@ -71,6 +71,7 @@
                         </defs>
                         <path id="graph-line" d="" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
                         <path id="graph-area" d="" fill="url(#grad)"/>
+                        <g id="graph-markers" pointer-events="none"></g>
                     </svg>
                     <div id="graph-empty" style="display: none; font-size: 11px; color: #71717A; text-align: center; padding: 18px 0;">Not enough history to draw a graph</div>
                     <div id="graph-labels" style="display: flex; justify-content: space-between; font-size: 9px; color: #71717A; padding-top: 2px;"></div>
@@ -219,6 +220,7 @@
                         </defs>
                         <path id="perf-graph-area" d="" fill="url(#grad-perf)"/>
                         <path id="perf-graph-line" d="" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                        <g id="perf-graph-markers" pointer-events="none"></g>
                         <line id="perf-guide" x1="0" y1="0" x2="0" y2="150" stroke="#71717A" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
                         <line id="perf-guide-y" x1="0" y1="0" x2="320" y2="0" stroke="#71717A" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
                         <circle id="perf-dot" cx="0" cy="0" r="4" fill="currentColor" stroke="#09090B" stroke-width="2" opacity="0"/>
@@ -327,6 +329,7 @@
                         </defs>
                         <path id="acct-graph-line" d="" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
                         <path id="acct-graph-area" d="" fill="url(#grad-acct)"/>
+                        <g id="acct-graph-markers" pointer-events="none"></g>
                     </svg>
                     <div id="acct-graph-empty" style="display: none; font-size: 11px; color: #71717A; text-align: center; padding: 18px 0;">Not enough history to draw a graph</div>
                     <div id="acct-graph-labels" style="display: flex; justify-content: space-between; font-size: 9px; color: #71717A; padding-top: 2px;"></div>
@@ -480,6 +483,7 @@
     <script src="js/storage.js"></script>
     <script src="js/state.js"></script>
     <script src="js/history.js"></script>
+    <script src="js/snapshots.js"></script>
     <script src="js/graph.js"></script>
     <script src="js/rates.js"></script>
     <script src="js/accounts.js"></script>

@@ -11,6 +11,8 @@ function switchTab(tabName, btnElement) {
 // --- Start-up: runs last, once every function and variable above exists ---
 // Initialize instantly with fallback rates so the UI never shows a blank state,
 // then fetch live rates and re-render once they arrive.
+upgradeLinkedAccounts();
+recordDailySnapshot();
 renderUser();
 renderSettings();
 renderAccounts();
