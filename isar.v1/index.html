@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isar App Mockup</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <div class="phone-frame">
+        <!-- Header -->
+        <div class="header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #00FF85; box-shadow: 0 0 8px #00FF85;"></div>
+                <span style="font-size: 18px; font-weight: 800; letter-spacing: -0.5px;">Isar</span>
+            </div>
+            <button id="user-avatar" onclick="openProfile()" class="interactive-btn" title="Account &amp; settings" style="width: 32px; height: 32px; border-radius: 50%; background: #1E1E24; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border: 1px solid #27272A; color: #fff; padding: 0;"></button>
+        </div>
+
+        <!-- Scrollable Content Area -->
+        <div class="content">
+            
+            <!-- Net Worth Card -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Total Global Net Worth</span>
+                    
+                    <button onclick="toggleCurrencyMenu()" id="curr-btn" class="interactive-btn" style="background: #18181B; border: 1px solid #27272A; border-radius: 20px; padding: 4px 10px; display: flex; align-items: center; gap: 6px; color: #fff; font-size: 12px; font-weight: 600;">
+                        <span id="curr-label">AUD 🇦🇺</span>
+                        <span style="font-size: 9px; color: #00FF85;">▼</span>
+                    </button>
+                </div>
+
+                <div id="balance-display" style="font-size: 32px; font-weight: 800; letter-spacing: -1px;">…</div>
+                <div id="balance-subtext" style="font-size: 11px; color: #00FF85; font-weight: 500;"></div>
+
+                <!-- Currency Dropdown Overlay -->
+                <div id="curr-menu" class="dropdown-menu">
+                    <div style="font-size: 10px; color: #71717A; padding: 4px 8px; text-transform: uppercase; font-weight: 700;">View in Currency</div>
+                    <div id="curr-items"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px 2px 8px; border-top: 1px solid #27272A; margin-top: 4px;">
+                        <div id="rates-status" style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+                            <span id="rates-status-text" style="font-size: 9px; color: #71717A; font-weight: 600;">Loading live rates…</span>
+                            <span id="rates-status-sub" style="font-size: 9px; color: #71717A;"></span>
+                        </div>
+                        <button id="rates-refresh-btn" class="rates-btn" onclick="event.stopPropagation(); fetchLiveRates(true);" title="Refresh rates">
+                            <span class="rates-icon"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 1: ACCOUNTS -->
+            <div id="panel-accounts" class="tab-panel active">
+                <div style="font-size: 13px; color: #71717A; line-height: 1.4;">Welcome back,<br><strong id="welcome-name" style="font-size: 20px; color: #fff; font-weight: 700;"></strong></div>
+                
+                <!-- Performance Graph Card with Timeline Selector -->
+                <div class="card" style="padding: 16px; gap: 8px; cursor: pointer;" onclick="openPerformance()">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #71717A;">
+                        <span id="timeframe-title">Performance (6 Months)</span>
+                        <span style="color: #00FF85; font-weight: 600; display: flex; align-items: center; gap: 4px;"><span id="timeframe-pct">…</span> <span style="font-size: 13px; color: #71717A;">›</span></span>
+                    </div>
+
+                    <svg id="graph-svg" viewBox="0 0 320 70" preserveAspectRatio="none" style="width: 100%; height: 60px; overflow: visible; color: #00FF85;">
+                        <defs>
+                            <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="currentColor" stop-opacity="0.25"/>
+                                <stop offset="100%" stop-color="currentColor" stop-opacity="0.0"/>
+                            </linearGradient>
+                        </defs>
+                        <path id="graph-line" d="" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                        <path id="graph-area" d="" fill="url(#grad)"/>
+                    </svg>
+                    <div id="graph-empty" style="display: none; font-size: 11px; color: #71717A; text-align: center; padding: 18px 0;">Not enough history to draw a graph</div>
+                    <div id="graph-labels" style="display: flex; justify-content: space-between; font-size: 9px; color: #71717A; padding-top: 2px;"></div>
+                </div>
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-size: 12px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px;">Connected Accounts</span>
+                        <button onclick="toggleAccounts()" id="accounts-toggle-btn" class="interactive-btn" style="background: #18181B; border: 1px solid #27272A; color: #00FF85; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            <span id="toggle-icon">+</span> <span id="toggle-text"></span>
+                        </button>
+                    </div>
+                    
+                    <!-- Always visible 4 accounts -->
+                    <div id="visible-accounts"></div>
+
+                    <!-- Hidden accounts revealed via toggle button -->
+                    <div id="extra-accounts" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: TRANSFER -->
+            <div id="panel-transfer" class="tab-panel">
+                <span style="font-size: 14px; font-weight: 700; color: #fff;">Send & Convert Funds</span>
+                
+                <!-- Source Account Selector -->
+                <div class="card" style="padding: 14px; gap: 6px;">
+                    <span style="font-size: 10px; color: #71717A; text-transform: uppercase; font-weight: 700;">From Account</span>
+                    <select id="transfer-from" style="background: #18181B; border: 1px solid #27272A; color: #fff; padding: 10px; border-radius: 10px; font-size: 13px; outline: none; width: 100%; cursor: pointer;">
+                    </select>
+                </div>
+
+                <!-- Destination Account Selector -->
+                <div class="card" style="padding: 14px; gap: 6px;">
+                    <span style="font-size: 10px; color: #71717A; text-transform: uppercase; font-weight: 700;">To Account</span>
+                    <select id="transfer-to" style="background: #18181B; border: 1px solid #27272A; color: #fff; padding: 10px; border-radius: 10px; font-size: 13px; outline: none; width: 100%; cursor: pointer;">
+                    </select>
+                </div>
+
+                <div class="card">
+                    <span style="font-size: 11px; color: #71717A;">Amount to send</span>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <span style="font-size: 24px; font-weight: 700; color: #00FF85;">$</span>
+                        <input type="text" value="250.00" style="background: transparent; border: none; color: #fff; font-size: 28px; font-weight: 800; width: 100%; outline: none;">
+                    </div>
+                </div>
+                <button class="interactive-btn" style="width: 100%; background: #00FF85; color: #000; border: none; border-radius: 14px; padding: 14px; font-size: 14px; font-weight: 800;">Send Funds</button>
+            </div>
+
+            <!-- TAB 3: CARDS (Apple Wallet Style Stack) -->
+            <div id="panel-cards" class="tab-panel">
+                <span style="font-size: 14px; font-weight: 700; color: #fff;">Virtual Global Cards</span>
+                <div class="wallet-container" id="wallet-stack" onclick="cycleWalletCards()">
+                    <!-- Card 1: Westpac -->
+                    <div class="wallet-card" id="w-card-0" style="background: linear-gradient(135deg, #DA1710 0%, #7a0d09 100%); top: 0px; z-index: 4;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 12px; font-weight: 800; color: #fff;">WESTPAC</span><span style="font-size: 10px; opacity: 0.8;">Checking</span></div>
+                        <div style="font-size: 15px; font-family: monospace; letter-spacing: 2px;">•••• •••• •••• 4092</div>
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.8); display: flex; justify-content: space-between;"><span>JARED</span><span>09/28</span></div>
+                    </div>
+                    <!-- Card 2: BBVA -->
+                    <div class="wallet-card" id="w-card-1" style="background: linear-gradient(135deg, #004481 0%, #002241 100%); top: 25px; z-index: 3;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 12px; font-weight: 800; color: #fff;">BBVA</span><span style="font-size: 10px; opacity: 0.8;">Savings</span></div>
+                        <div style="font-size: 15px; font-family: monospace; letter-spacing: 2px;">•••• •••• •••• 8812</div>
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.8); display: flex; justify-content: space-between;"><span>JARED</span><span>12/27</span></div>
+                    </div>
+                    <!-- Card 3: Revolut -->
+                    <div class="wallet-card" id="w-card-2" style="background: linear-gradient(135deg, #191C1F 0%, #050507 100%); top: 50px; z-index: 2;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 12px; font-weight: 800; color: #00FF85;">REVOLUT</span><span style="font-size: 10px; opacity: 0.8;">Multi-Currency</span></div>
+                        <div style="font-size: 15px; font-family: monospace; letter-spacing: 2px;">•••• •••• •••• 3341</div>
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.8); display: flex; justify-content: space-between;"><span>JARED</span><span>03/29</span></div>
+                    </div>
+                    <!-- Card 4: Crypto.com -->
+                    <div class="wallet-card" id="w-card-3" style="background: linear-gradient(135deg, #111827 0%, #030712 100%); top: 75px; z-index: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 12px; font-weight: 800; color: #38bdf8;">CRYPTO.COM</span><span style="font-size: 10px; opacity: 0.8;">Visa Card</span></div>
+                        <div style="font-size: 15px; font-family: monospace; letter-spacing: 2px;">•••• •••• •••• 9904</div>
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.8); display: flex; justify-content: space-between;"><span>JARED</span><span>05/30</span></div>
+                    </div>
+                </div>
+                <div style="text-align: center; font-size: 11px; color: #71717A; margin-top: 10px;">Tap stack to cycle cards</div>
+            </div>
+
+            <!-- TAB 4: CONNECT (Top 40 Banks Live Search & Apple-Style Secure Flow) -->
+            <div id="panel-connect" class="tab-panel">
+                <span style="font-size: 14px; font-weight: 700; color: #fff;">Link Financial Institution</span>
+                
+                <!-- Search Box -->
+                <div style="position: relative;">
+                    <input type="text" id="bank-search" oninput="filterBanks()" placeholder="Search top global banks..." style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px 14px; color: #fff; font-size: 13px; outline: none; width: 100%;">
+                    <div id="bank-results" style="display: none; position: absolute; top: 48px; left: 0; right: 0; background: #18181B; border: 1px solid #27272A; border-radius: 12px; max-height: 220px; overflow-y: auto; z-index: 30; box-shadow: 0 15px 30px rgba(0,0,0,0.8);"></div>
+                </div>
+
+                <!-- Banks you've linked (saved between sessions) -->
+                <div id="linked-section" style="display: none; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #A1A1AA;">Your linked banks</span>
+                    <div id="linked-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                </div>
+
+                <!-- Suggested banks (hidden once linked) -->
+                <div id="suggested-section" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #A1A1AA;">Suggested</span>
+                    <div id="connect-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                </div>
+
+                <button class="interactive-btn" onclick="resetSavedData()" style="margin-top: 12px; background: transparent; border: none; color: #71717A; font-size: 11px; text-decoration: underline; cursor: pointer; align-self: center;">Clear saved data</button>
+            </div>
+
+        </div>
+
+        <!-- Bottom Navigation Bar -->
+        <div class="nav-bar">
+            <button class="nav-btn active interactive-btn" onclick="switchTab('accounts', this)" id="btn-accounts"><span>💼</span><span style="font-size: 10px;">Accounts</span></button>
+            <button class="nav-btn interactive-btn" onclick="switchTab('transfer', this)" id="btn-transfer"><span>↔️</span><span style="font-size: 10px;">Transfer</span></button>
+            <button class="nav-btn interactive-btn" onclick="switchTab('cards', this)" id="btn-cards"><span>💳</span><span style="font-size: 10px;">Cards</span></button>
+            <button class="nav-btn interactive-btn" onclick="switchTab('connect', this)" id="btn-connect"><span>➕</span><span style="font-size: 10px;">Connect</span></button>
+        </div>
+
+        <!-- Performance detail screen (opened by tapping the Performance card) -->
+        <div id="perf-screen" class="perf-screen">
+            <div class="header">
+                <button onclick="closePerformance()" class="interactive-btn" title="Back" style="width: 32px; height: 32px; border-radius: 50%; background: #18181B; border: 1px solid #27272A; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; padding-bottom: 2px;">‹</button>
+                <span style="font-size: 15px; font-weight: 700;">Performance</span>
+                <div style="width: 32px;"></div>
+            </div>
+
+            <div class="content" id="perf-content" style="padding-bottom: 24px;">
+
+                <!-- Summary: total value and change for the selected window (or a scrubbed point) -->
+                <div class="card" style="gap: 4px;">
+                    <span id="perf-asof" style="font-size: 11px; color: #71717A;"></span>
+                    <span id="perf-total" style="font-size: 28px; font-weight: 800; letter-spacing: -1px;"></span>
+                    <span id="perf-change" style="font-size: 12px; font-weight: 600;"></span>
+                </div>
+
+                <!-- Timeframe -->
+                <div id="perf-timeframes" style="display: flex; gap: 6px;"></div>
+
+                <!-- Big graph: drag or tap to inspect a point (touch); hover shows a crosshair + tooltip (mouse) -->
+                <div class="card" style="padding: 16px; gap: 6px; position: relative;">
+                    <svg id="perf-graph-svg" viewBox="0 0 320 150" preserveAspectRatio="none" style="width: 100%; height: 130px; overflow: visible; color: #00FF85;">
+                        <defs>
+                            <linearGradient id="grad-perf" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="currentColor" stop-opacity="0.25"/>
+                                <stop offset="100%" stop-color="currentColor" stop-opacity="0.0"/>
+                            </linearGradient>
+                        </defs>
+                        <path id="perf-graph-area" d="" fill="url(#grad-perf)"/>
+                        <path id="perf-graph-line" d="" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                        <line id="perf-guide" x1="0" y1="0" x2="0" y2="150" stroke="#71717A" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
+                        <line id="perf-guide-y" x1="0" y1="0" x2="320" y2="0" stroke="#71717A" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
+                        <circle id="perf-dot" cx="0" cy="0" r="4" fill="currentColor" stroke="#09090B" stroke-width="2" opacity="0"/>
+                    </svg>
+                    <div id="perf-tooltip" style="position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none; transition: opacity 0.12s ease; background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 6px 10px; font-size: 11px; white-space: nowrap; box-shadow: 0 8px 20px rgba(0,0,0,0.5); z-index: 5; transform: translate(-50%, -125%);">
+                        <div id="perf-tooltip-date" style="color: #71717A; font-size: 9px; font-weight: 600; margin-bottom: 2px;"></div>
+                        <div id="perf-tooltip-value" style="color: #fff; font-weight: 800;"></div>
+                    </div>
+                    <div id="perf-graph-empty" style="display: none; font-size: 11px; color: #71717A; text-align: center; padding: 30px 0;">Not enough history to draw a graph</div>
+                    <div id="perf-graph-labels" style="display: flex; justify-content: space-between; font-size: 9px; color: #71717A; padding-top: 2px;"></div>
+                    <div style="font-size: 9px; color: #71717A; text-align: center;">Touch and drag the graph to inspect a point</div>
+                </div>
+
+                <!-- Analytics computed from the visible window -->
+                <div>
+                    <div class="section-label">Window analytics</div>
+                    <div class="stat-grid">
+                        <div class="stat-tile">
+                            <span class="stat-tile-label">Best move</span>
+                            <span class="stat-tile-value" id="perf-best-value" style="color: #00FF85;"></span>
+                            <span class="stat-tile-sub" id="perf-best-sub"></span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-tile-label">Worst move</span>
+                            <span class="stat-tile-value" id="perf-worst-value" style="color: #FF4D6D;"></span>
+                            <span class="stat-tile-sub" id="perf-worst-sub"></span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-tile-label">Max drawdown</span>
+                            <span class="stat-tile-value" id="perf-drawdown-value"></span>
+                            <span class="stat-tile-sub" id="perf-drawdown-sub"></span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-tile-label">Typical swing</span>
+                            <span class="stat-tile-value" id="perf-vol-value"></span>
+                            <span class="stat-tile-sub">per snapshot, ±1 std dev</span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-tile-label">Snapshots up / down</span>
+                            <span class="stat-tile-value" id="perf-updown-value"></span>
+                            <span class="stat-tile-sub" id="perf-updown-sub"></span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-tile-label">Annualized</span>
+                            <span class="stat-tile-value" id="perf-annualized-value"></span>
+                            <span class="stat-tile-sub">est., compounded over the window</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Per-account contribution to the change over the window -->
+                <div>
+                    <div class="section-label">Movers this window</div>
+                    <div class="settings-group" id="perf-contrib"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Account detail screen (opened by tapping an account row; sits inside the phone frame) -->
+        <div id="account-screen" class="account-screen">
+            <div class="header">
+                <button onclick="closeAccount()" class="interactive-btn" title="Back" style="width: 32px; height: 32px; border-radius: 50%; background: #18181B; border: 1px solid #27272A; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; padding-bottom: 2px;">‹</button>
+                <span id="acct-title" style="font-size: 15px; font-weight: 700;"></span>
+                <div style="width: 32px;"></div>
+            </div>
+
+            <div class="content" id="account-content" style="padding-bottom: 24px;">
+
+                <!-- Balance card -->
+                <div class="card" style="align-items: center; text-align: center; gap: 6px;">
+                    <div id="acct-badge" style="width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px;"></div>
+                    <div id="acct-name" style="font-size: 16px; font-weight: 700; margin-top: 4px;"></div>
+                    <div id="acct-type" style="font-size: 12px; color: #71717A;"></div>
+
+                    <!-- View this account in a different currency. Uses live exchange rates but is
+                         never saved: it resets to the account's own currency each time it's opened. -->
+                    <div style="position: relative; display: inline-block; margin-top: 4px;">
+                        <button onclick="toggleAcctCurrencyMenu()" id="acct-curr-btn" class="interactive-btn" style="background: #18181B; border: 1px solid #27272A; border-radius: 20px; padding: 4px 10px; display: flex; align-items: center; gap: 6px; color: #fff; font-size: 12px; font-weight: 600;">
+                            <span id="acct-curr-label">AUD 🇦🇺</span>
+                            <span style="font-size: 9px; color: #00FF85;">▼</span>
+                        </button>
+                        <div id="acct-curr-menu" class="dropdown-menu" style="position: absolute; top: calc(100% + 6px); left: 50%; right: auto; transform: translateX(-50%); width: 180px;">
+                            <div style="font-size: 10px; color: #71717A; padding: 4px 8px; text-transform: uppercase; font-weight: 700;">View in Currency</div>
+                            <div id="acct-curr-items"></div>
+                        </div>
+                    </div>
+
+                    <div id="acct-balance" style="font-size: 28px; font-weight: 800; letter-spacing: -1px; margin-top: 8px;"></div>
+                    <div id="acct-converted" style="font-size: 12px; color: #71717A;"></div>
+                </div>
+
+                <!-- Balance history for this account -->
+                <div class="card" style="padding: 16px; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #71717A;">
+                        <span id="acct-graph-title">Balance</span>
+                        <span style="color: #00FF85; font-weight: 600;"><span id="acct-graph-pct">…</span></span>
+                    </div>
+                    <div id="acct-timeframes" style="display: flex; gap: 6px;"></div>
+                    <svg id="acct-graph-svg" viewBox="0 0 320 70" preserveAspectRatio="none" style="width: 100%; height: 60px; overflow: visible; color: #00FF85;">
+                        <defs>
+                            <linearGradient id="grad-acct" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="currentColor" stop-opacity="0.25"/>
+                                <stop offset="100%" stop-color="currentColor" stop-opacity="0.0"/>
+                            </linearGradient>
+                        </defs>
+                        <path id="acct-graph-line" d="" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                        <path id="acct-graph-area" d="" fill="url(#grad-acct)"/>
+                    </svg>
+                    <div id="acct-graph-empty" style="display: none; font-size: 11px; color: #71717A; text-align: center; padding: 18px 0;">Not enough history to draw a graph</div>
+                    <div id="acct-graph-labels" style="display: flex; justify-content: space-between; font-size: 9px; color: #71717A; padding-top: 2px;"></div>
+                    <div id="acct-graph-note" style="font-size: 9px; color: #71717A;"></div>
+                </div>
+
+                <!-- Details -->
+                <div>
+                    <div class="section-label">Details</div>
+                    <div class="settings-group">
+                        <div class="settings-row" style="cursor: default;">
+                            <span class="row-label"><span class="row-icon">🏦</span>Account type</span>
+                            <span class="row-value" id="acct-detail-type"></span>
+                        </div>
+                        <div class="settings-row" style="cursor: default;">
+                            <span class="row-label"><span class="row-icon">💱</span>Currency</span>
+                            <span class="row-value" id="acct-detail-currency"></span>
+                        </div>
+                        <div class="settings-row" style="cursor: default;">
+                            <span class="row-label"><span class="row-icon">📊</span>Share of net worth</span>
+                            <span class="row-value" id="acct-detail-share"></span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="row-label"><span class="row-icon">⚙️</span>Account settings</span>
+                            <span class="row-value">›</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account & Settings screen (opened by tapping the avatar; sits inside the phone frame) -->
+        <div id="profile-screen" class="profile-screen">
+            <div class="header">
+                <button onclick="closeProfile()" class="interactive-btn" title="Back" style="width: 32px; height: 32px; border-radius: 50%; background: #18181B; border: 1px solid #27272A; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; padding-bottom: 2px;">‹</button>
+                <span style="font-size: 15px; font-weight: 700;">Account</span>
+                <div style="width: 32px;"></div>
+            </div>
+
+            <div class="content" id="profile-content" style="padding-bottom: 24px;">
+
+                <!-- Profile card -->
+                <div class="card" style="align-items: center; text-align: center; gap: 6px;">
+                    <div id="profile-avatar" style="width: 72px; height: 72px; border-radius: 50%; background: #1E1E24; border: 2px solid #00FF85; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; box-shadow: 0 0 18px rgba(0, 255, 133, 0.25);"></div>
+                    <div id="profile-name" style="font-size: 18px; font-weight: 700; margin-top: 6px;"></div>
+                    <div id="profile-email" style="font-size: 12px; color: #71717A;"></div>
+                    <div id="profile-since" style="font-size: 10px; color: #00FF85; background: #18181B; border: 1px solid #27272A; border-radius: 12px; padding: 3px 10px; margin-top: 4px; font-weight: 600;"></div>
+                </div>
+
+                <!-- Account -->
+                <div>
+                    <div class="section-label">Account</div>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <span class="row-label"><span class="row-icon">👤</span>Personal details</span>
+                            <span class="row-value">›</span>
+                        </div>
+                        <div class="settings-row" onclick="goToLinkedAccounts()">
+                            <span class="row-label"><span class="row-icon">🔗</span>Linked accounts</span>
+                            <span class="row-value"><span id="profile-linked-count"></span> ›</span>
+                        </div>
+                        <div class="settings-row" onclick="toggleSetting('faceIdLock')">
+                            <span class="row-label"><span class="row-icon">🔒</span>Face ID lock</span>
+                            <div class="toggle" data-setting="faceIdLock"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preferences -->
+                <div>
+                    <div class="section-label">Preferences</div>
+                    <div class="settings-group">
+                        <div class="settings-row" style="flex-direction: column; align-items: stretch; cursor: default;">
+                            <span class="row-label"><span class="row-icon">💱</span>Display currency</span>
+                            <div id="profile-currency" style="display: flex; gap: 6px;"></div>
+                        </div>
+                        <div class="settings-row" onclick="toggleSetting('notifications')">
+                            <span class="row-label"><span class="row-icon">🔔</span>Notifications</span>
+                            <div class="toggle" data-setting="notifications"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Support -->
+                <div>
+                    <div class="section-label">Support</div>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <span class="row-label"><span class="row-icon">💬</span>Help &amp; support</span>
+                            <span class="row-value">›</span>
+                        </div>
+                        <div class="settings-row">
+                            <span class="row-label"><span class="row-icon">📄</span>Privacy &amp; terms</span>
+                            <span class="row-value">›</span>
+                        </div>
+                        <div class="settings-row" style="cursor: default;">
+                            <span class="row-label"><span class="row-icon">ℹ️</span>About Isar</span>
+                            <span class="row-value">v1.0.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="openSignOutDialog()" class="interactive-btn" style="width: 100%; background: transparent; border: 1px solid #3F1D24; color: #FF4D6D; border-radius: 14px; padding: 14px; font-size: 14px; font-weight: 700;">Sign out</button>
+            </div>
+
+            <!-- Sign-out confirmation -->
+            <div id="signout-dialog" style="display: none; position: absolute; inset: 0; background: rgba(9,9,11,0.85); backdrop-filter: blur(8px); z-index: 5; align-items: center; justify-content: center; padding: 24px;">
+                <div style="background: #121216; border: 1px solid #27272A; border-radius: 24px; padding: 24px; width: 100%; display: flex; flex-direction: column; gap: 16px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.9);">
+                    <div>
+                        <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Sign out of Isar?</h3>
+                        <p style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">You'll need to sign in again to see your balances.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="closeSignOutDialog()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">Cancel</button>
+                        <button onclick="confirmSignOut()" style="flex: 1; background: #FF4D6D; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer;">Sign out</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signed-out state -->
+            <div id="signed-out-view" style="display: none; position: absolute; inset: 0; background: #09090B; z-index: 6; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center;">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(0,255,133,0.15); color: #00FF85; font-size: 22px; display: flex; align-items: center; justify-content: center;">✓</div>
+                <div>
+                    <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Signed out</h3>
+                    <p style="font-size: 12px; color: #A1A1AA;">See you soon, <span id="signed-out-name"></span>.</p>
+                </div>
+                <button onclick="signBackIn()" class="interactive-btn" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px 24px; color: #000; font-size: 13px; font-weight: 700;">Sign back in</button>
+            </div>
+        </div>
+
+        <!-- Apple-style Secure Modal Overlay (Contained strictly inside phone container) -->
+        <div id="secure-modal" style="display: none; position: absolute; inset: 0; background: rgba(9,9,11,0.85); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center; padding: 24px;">
+            <div id="modal-content-box" style="background: #121216; border: 1px solid #27272A; border-radius: 24px; padding: 24px; width: 100%; display: flex; flex-direction: column; gap: 16px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.9);">
+                <div id="modal-icon" style="width: 48px; height: 48px; border-radius: 12px; background: #00FF85; color: #000; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto;">C</div>
+                <div>
+                    <h3 id="modal-title" style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Securely connect Chase Bank?</h3>
+                    <p id="modal-desc" style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">Isar uses secure, read-only tokenization to sync your balances without storing credentials.</p>
+                </div>
+                <div id="modal-actions" style="display: flex; gap: 10px;">
+                    <button onclick="closeModal()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">Cancel</button>
+                    <button onclick="startSecureConnect()" style="flex: 1; background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer;">Okay</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts load in this order; main.js must stay last. -->
+    <script src="js/historynetworth.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/graph.js"></script>
+    <script src="js/rates.js"></script>
+    <script src="js/accounts.js"></script>
+    <script src="js/cards.js"></script>
+    <script src="js/connect.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/performance.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
