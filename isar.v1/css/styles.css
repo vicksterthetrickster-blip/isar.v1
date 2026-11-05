@@ -42,6 +42,12 @@
         /* Sections keep their full height, so the page scrolls. Without this, the column squeezed
            every section to fit the screen: nothing could scroll and the last account got clipped. */
         .content > * { flex-shrink: 0; }
+        /* Always scrollable, like a native app: iOS only lets an area drag and bounce if its content
+           is taller than the area. This invisible 1px-wide strip is always 1px taller than the
+           visible area, so even a screen that fits (e.g. on a Pro Max) still drags and springs back.
+           It's absolutely positioned, so it doesn't move anything else. */
+        .content { position: relative; }
+        .content::after { content: ''; position: absolute; top: 0; left: 0; width: 1px; height: calc(100% + 1px); pointer-events: none; }
 
         /* --- Feel like a native app, not a web page --- */
         html, body { overscroll-behavior: none; }               /* no rubber-band bounce of the whole page */
