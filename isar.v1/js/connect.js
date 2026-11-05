@@ -52,7 +52,7 @@ function filterBanks() {
     resultsBox.innerHTML = filtered.map(b => `
         <div class="bank-result" onclick="promptConnect(${topBanks.indexOf(b)})">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="width: 28px; height: 28px; border-radius: 6px; background: ${b.color}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">${b.name[0]}</div>
+                ${bankIconHTML(b, 28)}
                 <span style="font-size: 13px; font-weight: 600; color: #fff;">${highlightBankName(b.name, query)}</span>
             </div>
             <span style="font-size: 11px; color: ${isBankLinked(b.name) ? '#71717A' : '#00FF85'}; font-weight: 600;">${isBankLinked(b.name) ? 'Linked ✓' : 'Connect'}</span>
@@ -109,17 +109,13 @@ function escapeHTML(str) {
     return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function bankBadgeHTML(bank, size) {
-    return '<div style="width: ' + size + 'px; height: ' + size + 'px; border-radius: 8px; background: ' + bank.color + '; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">' + escapeHTML(bank.name[0]) + '</div>';
-}
-
 function renderConnectTab() {
     const linked = ACCOUNTS.filter(a => a.userLinked);
     document.getElementById('linked-section').style.display = linked.length ? 'flex' : 'none';
     document.getElementById('linked-list').innerHTML = linked.map(a =>
         '<div class="account-row" style="margin-bottom: 0;">' +
             '<div style="display: flex; align-items: center; gap: 10px; min-width: 0;">' +
-                bankBadgeHTML({ name: a.name, color: a.color }, 32) +
+                bankIconHTML(a, 32) +
                 '<div style="min-width: 0;"><div style="font-size: 13px; font-weight: 600;">' + escapeHTML(a.name) + '</div>' +
                 '<div style="font-size: 11px; color: #71717A;">' + formatAccountBalance(a) + '</div></div>' +
             '</div>' +
@@ -131,7 +127,7 @@ function renderConnectTab() {
     document.getElementById('suggested-section').style.display = suggestions.length ? 'flex' : 'none';
     document.getElementById('connect-container').innerHTML = suggestions.map(b =>
         '<div class="account-row" style="margin-bottom: 0;">' +
-            '<div style="display: flex; align-items: center; gap: 10px;">' + bankBadgeHTML(b, 32) +
+            '<div style="display: flex; align-items: center; gap: 10px;">' + bankIconHTML(b, 32) +
             '<span style="font-size: 13px; font-weight: 600;">' + escapeHTML(b.name) + '</span></div>' +
             '<button class="interactive-btn" onclick="promptConnect(' + topBanks.indexOf(b) + ')" style="background: #1E1E24; color: #fff; border: 1px solid #27272A; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;">+ Link</button>' +
         '</div>'
@@ -280,9 +276,8 @@ function promptConnect(bankIndex) {
 
     closeModalAndReset();   // make sure the modal is in its starting layout
     const icon = document.getElementById('modal-icon');
-    icon.innerText = bank.name[0];
-    icon.style.background = bank.color;
-    icon.style.color = '#fff';
+    icon.innerHTML = bankIconHTML(bank, 48);
+    icon.style.background = 'transparent';
 
     if (isBankLinked(bank.name)) {
         document.getElementById('modal-title').innerText = bank.name + ' is already linked';

@@ -28,6 +28,7 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 | `js/connect.js` | Connect tab: bank search and linking (incl. the mock account history, `generateMockAccountHistory`) |
 | `js/profile.js` | Profile, settings, sign out |
 | `js/performance.js` | Performance screen |
+| `js/logos.js` | Bank icons: real logo (logo.dev) in off-white on the bank's colour; paste the key in `LOGO_DEV_TOKEN` |
 | `js/ui.js` | Native feel: menus that close themselves, slide-over screens, swipe-back, confirm pop-up |
 | `js/signin.js` | Sign-in screens: welcome, sign in, create account, demo |
 | `js/setup.js` | First-run setup after creating an account: home currency, first accounts, done |

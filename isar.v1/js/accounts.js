@@ -19,7 +19,7 @@ function accountRowHTML(account, extraStyle) {
     const converted = formatConvertedBalance(account);
     return '<div class="account-row" onclick="openAccount(\'' + account.id + '\')"' + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' +
         '<div style="display: flex; align-items: center; gap: 12px;">' +
-            '<div style="width: 36px; height: 36px; border-radius: 10px; background: ' + account.color + '; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">' + account.letter + '</div>' +
+            bankIconHTML(account, 36) +
             '<div><div style="font-size: 13px; font-weight: 600;">' + escapeHTML(account.name) + '</div>' +
             '<div style="font-size: 11px; color: #71717A;">' + escapeHTML(account.type) + '</div></div>' +
         '</div>' +
@@ -171,8 +171,8 @@ function renderAccountDetail() {
     // Top card: the balance in the currency chosen for THIS account (its own by default),
     // with the native amount shown underneath whenever a different one is picked.
     const badge = document.getElementById('acct-badge');
-    badge.innerText = account.letter;
-    badge.style.background = account.color;
+    badge.innerHTML = bankIconHTML(account, 56);
+    badge.style.background = 'transparent';
     document.getElementById('acct-title').innerText = account.name;
     document.getElementById('acct-name').innerText = account.name;
     document.getElementById('acct-type').innerText = account.type + ' · ' + account.currency;

@@ -165,7 +165,7 @@ function perfMoverRowHTML(m) {
     const up = m.delta >= 0;
     return '<div class="settings-row" style="cursor: pointer;" onclick="closePerformance(); openAccount(\'' + m.account.id + '\')">' +
         '<span class="row-label">' +
-            '<span class="row-icon" style="background: ' + m.account.color + '; color: #fff;">' + m.account.letter + '</span>' +
+            bankIconHTML(m.account, 28) +
             m.account.name +
         '</span>' +
         '<span style="text-align: right;">' +

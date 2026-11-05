@@ -230,6 +230,15 @@
                        display: flex; align-items: center; justify-content: center; animation: popIn 0.5s cubic-bezier(0.32, 0.72, 0, 1); }
         .setup-networth { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
 
+        /* Bank icons (logos.js): the logo in off-white on the bank's colour. The white logo image is
+           tinted with a CSS filter: slightly off-white normally, near-black on very light tiles. */
+        .bank-icon { flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+                     color: #F5F5F0; font-weight: 800; letter-spacing: -0.5px;
+                     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+        .bank-icon img { width: 100%; height: 100%; display: block; filter: sepia(0.08); }
+        .bank-icon.light { color: #111113; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+        .bank-icon.light img { filter: brightness(0.07); }
+
         /* Home tab with no accounts yet */
         .home-empty { align-items: center; text-align: center; gap: 10px; padding: 28px 20px; }
         .home-empty-icon { width: 52px; height: 52px; border-radius: 16px; background: rgba(0, 255, 133, 0.12); color: #00FF85;

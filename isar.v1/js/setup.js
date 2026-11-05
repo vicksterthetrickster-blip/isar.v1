@@ -77,7 +77,7 @@ function refreshSetup() {
     if (!isSetupOpen()) return;
     const added = ACCOUNTS.filter(a => a.userLinked);
     document.getElementById('setup-added').innerHTML = added.map(a =>
-        '<div class="setup-item added">' + bankBadgeHTML({ name: a.name, color: a.color }, 32) +
+        '<div class="setup-item added">' + bankIconHTML(a, 32) +
             '<span class="setup-item-name">' + escapeHTML(a.name) + '<small>' + formatAccountBalance(a) + '</small></span>' +
             '<span class="setup-tick">✓</span>' +
         '</div>'
@@ -93,7 +93,7 @@ function renderSetupBanks() {
     document.getElementById('setup-banks-label').innerText = query ? 'Results' : 'Popular banks';
     document.getElementById('setup-bank-list').innerHTML = banks.map(b => {
         const linked = isBankLinked(b.name);
-        return '<button class="setup-item" onclick="promptConnect(' + topBanks.indexOf(b) + ')">' + bankBadgeHTML(b, 32) +
+        return '<button class="setup-item" onclick="promptConnect(' + topBanks.indexOf(b) + ')">' + bankIconHTML(b, 32) +
             '<span class="setup-item-name">' + (query ? highlightBankName(b.name, query) : escapeHTML(b.name)) + '</span>' +
             '<span class="setup-add' + (linked ? ' done' : '') + '">' + (linked ? 'Added ✓' : 'Add') + '</span>' +
         '</button>';
