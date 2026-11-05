@@ -53,10 +53,12 @@
         .card[onclick]:active { transform: scale(0.98); }       /* tappable cards give press feedback */
         .card { background: #121216; border: 1px solid #1E1E24; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px; position: relative; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         /* Tab bar: a floating frosted-glass pill with icon-only buttons */
-        .nav-bar { position: absolute; left: 16px; right: 16px; bottom: 14px; height: 62px; padding: 0 8px; border-radius: 31px;
+        /* Compact and centred (left/right 0 + margin auto + fit-content), not stretched edge to edge */
+        .nav-bar { position: absolute; left: 0; right: 0; margin: 0 auto; width: fit-content; gap: 6px;
+                   bottom: 14px; height: 60px; padding: 0 8px; border-radius: 30px;
                    background: rgba(24, 24, 27, 0.72); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
                    border: 1px solid rgba(255, 255, 255, 0.07); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-                   display: flex; justify-content: space-around; align-items: center; z-index: 20; }
+                   display: flex; align-items: center; z-index: 20; }
         .nav-btn { width: 56px; height: 44px; border-radius: 22px; background: transparent; border: none; padding: 0; cursor: pointer;
                    display: flex; align-items: center; justify-content: center; color: #71717A; -webkit-tap-highlight-color: transparent;
                    transition: color 0.2s ease, background 0.25s ease, transform 0.12s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -122,8 +124,10 @@
                 border: none; border-radius: 0; box-shadow: none;
             }
             .header { flex-shrink: 0; padding-top: calc(12px + env(safe-area-inset-top)); }
-            .nav-bar { bottom: calc(6px + env(safe-area-inset-bottom)); }
-            .content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+            /* Sits just above the home bar. The home-bar area (safe-area-inset-bottom, ~34px) has
+               empty space under the line itself, so the bar can overlap the top of it a little. */
+            .nav-bar { bottom: max(10px, calc(env(safe-area-inset-bottom) - 10px)); }
+            .content { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
             /* iPhone zooms into any text box under 16px when you tap it; 16px stops that */
             input, select { font-size: 16px !important; }
         }

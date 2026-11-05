@@ -321,9 +321,11 @@ function startSecureConnect() {
                 <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Authorized</h3>
                 <p style="font-size: 12px; color: #A1A1AA;">Enter the current balance of your ${name} account.</p>
             </div>
-            <div style="display: flex; gap: 8px;">
-                <input id="link-balance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" style="flex: 1; min-width: 0; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; outline: none;">
-                <select id="link-currency" style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 0 10px; color: #fff; font-size: 13px;">${currencyOptions}</select>
+            <!-- Balance and currency on separate full-width rows: side by side, the long currency
+                 names made the picker so wide that the balance box got squashed. -->
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <input id="link-balance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" style="width: 100%; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 14px; color: #fff; font-size: 18px; font-weight: 700; outline: none;">
+                <select id="link-currency" style="width: 100%; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px;">${currencyOptions}</select>
             </div>
             <p id="link-error" style="display: none; font-size: 11px; color: #FF4D6D; margin-top: -6px;">Enter a balance of 0 or more.</p>
             <button onclick="finishLinking()" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%;">Add to portfolio</button>
