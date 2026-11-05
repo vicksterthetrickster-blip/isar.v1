@@ -24,6 +24,16 @@ function renderUser() {
     document.getElementById('profile-name').innerText = USER.name;
     document.getElementById('profile-email').innerText = USER.email;
     document.getElementById('profile-since').innerText = 'Member since ' + USER.memberSince;
+
+    // In the demo: say so, "Sign out" becomes "Exit demo", and the sample-data switch is hidden
+    // (the demo always shows sample data).
+    const demo = !!(getSession() && getSession().demo);
+    if (demo) document.getElementById('profile-since').innerText = 'Demo mode · sample data';
+    document.getElementById('signout-btn').innerText = demo ? 'Exit demo' : 'Sign out';
+    document.getElementById('signout-confirm').innerText = demo ? 'Exit demo' : 'Sign out';
+    document.getElementById('signout-title').innerText = demo ? 'Exit the demo?' : 'Sign out of Isar?';
+    document.getElementById('signout-desc').innerText = demo ? 'You\'ll go back to the welcome screen.' : 'You\'ll need to sign in again to see your balances.';
+    document.getElementById('sample-data-row').hidden = demo;
 }
 
 function renderSettings() {
@@ -83,13 +93,9 @@ function closeSignOutDialog() {
     document.getElementById('signout-dialog').style.display = 'none';
 }
 
-function confirmSignOut() {
+// Signs out for real (auth.js) and reloads, which lands on the sign-in screen.
+async function confirmSignOut() {
     closeSignOutDialog();
-    document.getElementById('signed-out-name').innerText = getFirstName(USER.name);
-    document.getElementById('signed-out-view').style.display = 'flex';
-}
-
-function signBackIn() {
-    document.getElementById('signed-out-view').style.display = 'none';
-    closeProfile();
+    await signOut();
+    location.reload();
 }

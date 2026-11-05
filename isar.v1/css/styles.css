@@ -37,18 +37,45 @@
         body { background: #050507; min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #fff; }
         .phone-frame { width: 390px; height: 844px; background: #09090B; border-radius: 44px; border: 4px solid #27272A; overflow: hidden; display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); }
         .header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1E1E24; background: #09090B; z-index: 10; }
-        .content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 60px; scrollbar-width: none; }
+        .content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 96px; scrollbar-width: none; }
         .content::-webkit-scrollbar { display: none; }
+        /* Sections keep their full height, so the page scrolls. Without this, the column squeezed
+           every section to fit the screen: nothing could scroll and the last account got clipped. */
+        .content > * { flex-shrink: 0; }
+
+        /* --- Feel like a native app, not a web page --- */
+        html, body { overscroll-behavior: none; }               /* no rubber-band bounce of the whole page */
+        body { -webkit-tap-highlight-color: transparent;         /* no grey flash when tapping */
+               -webkit-user-select: none; user-select: none;     /* long-press doesn't select text */
+               -webkit-touch-callout: none;                      /* or pop up the copy/look-up menu */
+               touch-action: manipulation; }                     /* no double-tap zoom, so taps respond instantly */
+        input, textarea, select { -webkit-user-select: text; user-select: text; }
+        .card[onclick]:active { transform: scale(0.98); }       /* tappable cards give press feedback */
         .card { background: #121216; border: 1px solid #1E1E24; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px; position: relative; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-        .nav-bar { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(9, 9, 11, 0.85); backdrop-filter: blur(16px); border-top: 1px solid #1E1E24; padding: 12px 20px 24px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; }
-        .nav-btn { background: transparent; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #71717A; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-        .nav-btn.active { color: #00FF85; transform: scale(1.05); }
+        /* Tab bar: a floating frosted-glass pill with icon-only buttons */
+        .nav-bar { position: absolute; left: 16px; right: 16px; bottom: 14px; height: 62px; padding: 0 8px; border-radius: 31px;
+                   background: rgba(24, 24, 27, 0.72); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+                   border: 1px solid rgba(255, 255, 255, 0.07); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+                   display: flex; justify-content: space-around; align-items: center; z-index: 20; }
+        .nav-btn { width: 56px; height: 44px; border-radius: 22px; background: transparent; border: none; padding: 0; cursor: pointer;
+                   display: flex; align-items: center; justify-content: center; color: #71717A; -webkit-tap-highlight-color: transparent;
+                   transition: color 0.2s ease, background 0.25s ease, transform 0.12s cubic-bezier(0.16, 1, 0.3, 1); }
+        .nav-btn svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        @media (hover: hover) { .nav-btn:hover { color: #A1A1AA; } }   /* hover only with a mouse; on touch it would "stick" */
+        .nav-btn:active { transform: scale(0.9); }
+        .nav-btn.active { color: #00FF85; background: rgba(0, 255, 133, 0.12); }
+        .nav-btn.active svg { stroke-width: 2.1; }
         .account-row { background: #121216; border: 1px solid #1E1E24; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; transition: transform 0.15s ease, background 0.15s ease; cursor: pointer; }
         .account-row:active { transform: scale(0.97); background: #18181B; }
         .dropdown-menu { position: absolute; top: 65px; right: 15px; background: #18181B; border: 1px solid #27272A; border-radius: 16px; padding: 8px; z-index: 50; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.8); width: 220px; display: none; animation: fadeIn 0.15s ease; }
         .dropdown-menu.open { display: block; }
         .dropdown-item { width: 100%; background: transparent; border: none; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #fff; font-size: 12px; transition: background 0.1s; }
-        .dropdown-item:hover, .dropdown-item.active { background: #27272A; color: #00FF85; font-weight: 700; }
+        .dropdown-item.active, .dropdown-item:active { background: #27272A; color: #00FF85; font-weight: 700; }
+        @media (hover: hover) { .dropdown-item:hover { background: #27272A; color: #00FF85; font-weight: 700; } }
+        /* Bank search results (Connect tab) */
+        .bank-result { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #27272A; transition: background 0.1s; }
+        .bank-result:active { background: #27272A; }
+        @media (hover: hover) { .bank-result:hover { background: #27272A; } }
         /* ~30 currencies: the lists scroll instead of running off the screen */
         #curr-items, #acct-curr-items { max-height: 260px; overflow-y: auto; }
         .tab-panel { display: none; flex-direction: column; gap: 16px; animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -62,7 +89,7 @@
         @keyframes statusSwap { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes valueRefresh { 0% { opacity: 0.3; transform: translateY(5px); filter: blur(2px); } 100% { opacity: 1; transform: translateY(0); filter: blur(0); } }
         .rates-btn { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: #18181B; border: 1px solid #27272A; color: #00FF85; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease; }
-        .rates-btn:hover { border-color: #00FF85; }
+        @media (hover: hover) { .rates-btn:hover { border-color: #00FF85; } }
         .rates-btn:active { transform: scale(0.92); }
         .rates-btn.refreshing { pointer-events: none; border-color: #00FF85; background: rgba(0, 255, 133, 0.08); }
         .rates-icon { display: flex; align-items: center; justify-content: center; }
@@ -95,14 +122,16 @@
                 border: none; border-radius: 0; box-shadow: none;
             }
             .header { flex-shrink: 0; padding-top: calc(12px + env(safe-area-inset-top)); }
-            .nav-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-            .content { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+            .nav-bar { bottom: calc(6px + env(safe-area-inset-bottom)); }
+            .content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
             /* iPhone zooms into any text box under 16px when you tap it; 16px stops that */
             input, select { font-size: 16px !important; }
         }
 
         @media (prefers-reduced-motion: reduce) {
             .rates-btn.refreshing .rates-icon, .pulsing, .status-swap, .value-refresh { animation: none; }
+            .profile-screen, .account-screen, .perf-screen, .phone-frame > .header, .phone-frame > .content, .phone-frame > .nav-bar { transition: none !important; }
+            #secure-modal, #signout-dialog, #modal-content-box, #signout-dialog > div { animation: none !important; }
         }
 
         /* Apple Wallet Stack Styles */
@@ -113,9 +142,92 @@
         @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 
+        /* --- Screens that slide over the app (Account & Settings, account detail, Performance) ---
+           Like iOS: a screen slides in from the right while the app behind it drifts a little to the
+           left, and slides back out on close. Closed screens wait off to the right, invisible
+           (`visibility` switches off only AFTER the slide-out finishes). Swipe-back: ui.js. */
+        .profile-screen, .account-screen, .perf-screen {
+            position: absolute; inset: 0; background: #09090B; z-index: 60; display: flex; flex-direction: column;
+            transform: translateX(100%); visibility: hidden; box-shadow: -16px 0 40px rgba(0, 0, 0, 0.6);
+            transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.42s;
+        }
+        .profile-screen.open, .account-screen.open, .perf-screen.open {
+            transform: translateX(0); visibility: visible;
+            transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+        .phone-frame > .header, .phone-frame > .content, .phone-frame > .nav-bar { transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.42s ease; }
+        .phone-frame.screen-open > .header, .phone-frame.screen-open > .content, .phone-frame.screen-open > .nav-bar { transform: translateX(-25%); opacity: 0.5; }
+
+        /* Pop-ups fade in, and their box grows in slightly */
+        @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+        #secure-modal, #signout-dialog { animation: overlayIn 0.2s ease; }
+        #modal-content-box, #signout-dialog > div { animation: popIn 0.32s cubic-bezier(0.32, 0.72, 0, 1); }
+
+        /* --- Sign-in screens --- */
+        .auth-screen { position: absolute; inset: 0; z-index: 200; display: flex; flex-direction: column; overflow-y: auto;
+                       background: radial-gradient(circle at 50% 22%, #10231a 0%, #09090B 55%);
+                       padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); }
+        [hidden] { display: none !important; }   /* the hidden attribute always wins over any `display: flex` */
+        .auth-screen.leaving { animation: overlayIn 0.3s ease reverse forwards; }
+        .auth-view { flex: 1; display: flex; flex-direction: column; gap: 12px; animation: slideInRight 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
+        .auth-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
+        .auth-logo { width: 88px; height: 88px; border-radius: 22px; box-shadow: 0 0 40px rgba(0, 255, 133, 0.18); }
+        .auth-title { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+        .auth-tagline { font-size: 14px; color: #A1A1AA; max-width: 240px; line-height: 1.4; }
+        .auth-actions { display: flex; flex-direction: column; gap: 10px; }
+        .auth-btn { width: 100%; border-radius: 14px; padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer; border: none;
+                    transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s; }
+        .auth-btn:active { transform: scale(0.97); opacity: 0.85; }
+        .auth-btn.primary { background: #00FF85; color: #000; }
+        .auth-btn.secondary { background: #18181B; color: #fff; border: 1px solid #27272A; }
+        .auth-btn.loading { pointer-events: none; color: transparent; position: relative; }
+        .auth-btn.loading::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+                                   border: 2px solid rgba(0, 0, 0, 0.25); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        .auth-link { background: none; border: none; color: #A1A1AA; font-size: 13px; font-weight: 600; padding: 10px; cursor: pointer; }
+        .auth-back { align-self: flex-start; width: 36px; height: 36px; border-radius: 50%; background: #18181B; border: 1px solid #27272A;
+                     color: #fff; font-size: 20px; line-height: 1; padding-bottom: 2px; cursor: pointer; margin-bottom: 12px; }
+        .auth-heading { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+        .auth-sub { font-size: 13px; color: #A1A1AA; margin-bottom: 12px; }
+        .auth-input { background: #121216; border: 1px solid #27272A; border-radius: 14px; padding: 15px 14px; color: #fff; font-size: 16px; outline: none; transition: border-color 0.15s; }
+        .auth-input:focus { border-color: #00FF85; }
+        .auth-error { font-size: 12px; color: #FF4D6D; }
+        .auth-note { font-size: 11px; color: #71717A; text-align: center; margin-top: 4px; }
+
+        /* --- First-run setup (reuses the sign-in styles above) --- */
+        .setup-screen { z-index: 90; overflow: hidden; }                 /* under pop-ups (100), so "add a bank" works */
+        .setup-screen .auth-view { min-height: 0; }
+        .setup-progress { display: flex; justify-content: center; gap: 6px; margin-bottom: 20px; flex-shrink: 0; }
+        .setup-progress span { width: 8px; height: 8px; border-radius: 4px; background: #27272A; transition: width 0.3s ease, background 0.3s ease; }
+        .setup-progress span.active { width: 24px; background: #00FF85; }
+        .setup-list { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+        .setup-list.grow { flex: 1; flex-shrink: 1; min-height: 120px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+        .setup-list.grow::-webkit-scrollbar { display: none; }
+        .setup-list-label { font-size: 12px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+        .setup-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #121216; border: 1px solid #1E1E24;
+                      border-radius: 14px; padding: 11px 14px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+                      transition: border-color 0.15s, background 0.15s, transform 0.12s; }
+        .setup-item:active { transform: scale(0.98); background: #18181B; }
+        .setup-item.selected { border-color: #00FF85; background: rgba(0, 255, 133, 0.06); }
+        .setup-item.added { cursor: default; border-color: rgba(0, 255, 133, 0.35); }
+        .setup-flag { font-size: 22px; line-height: 1; }
+        .setup-item-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .setup-item-name small { font-size: 11px; color: #71717A; font-weight: 500; margin-top: 1px; }
+        .setup-tick { color: #00FF85; font-weight: 800; opacity: 0; }
+        .setup-item.selected .setup-tick, .setup-item.added .setup-tick { opacity: 1; }
+        .setup-add { font-size: 12px; font-weight: 700; color: #00FF85; }
+        .setup-add.done { color: #71717A; }
+        .setup-empty { font-size: 13px; color: #71717A; text-align: center; padding: 16px 0; }
+        .setup-check { width: 72px; height: 72px; border-radius: 50%; background: rgba(0, 255, 133, 0.15); color: #00FF85; font-size: 34px;
+                       display: flex; align-items: center; justify-content: center; animation: popIn 0.5s cubic-bezier(0.32, 0.72, 0, 1); }
+        .setup-networth { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
+
+        /* Home tab with no accounts yet */
+        .home-empty { align-items: center; text-align: center; gap: 10px; padding: 28px 20px; }
+        .home-empty-icon { width: 52px; height: 52px; border-radius: 16px; background: rgba(0, 255, 133, 0.12); color: #00FF85;
+                           font-size: 28px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+
         /* Account & Settings screen */
-        .profile-screen, .account-screen, .perf-screen { position: absolute; inset: 0; background: #09090B; z-index: 60; display: none; flex-direction: column; }
-        .profile-screen.open, .account-screen.open, .perf-screen.open { display: flex; animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .section-label { font-size: 12px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .settings-group { background: #121216; border: 1px solid #1E1E24; border-radius: 16px; overflow: hidden; }
         .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #1E1E24; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease; }

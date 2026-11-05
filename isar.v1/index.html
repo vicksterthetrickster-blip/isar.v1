@@ -67,8 +67,16 @@
             <div id="panel-accounts" class="tab-panel active">
                 <div style="font-size: 13px; color: #71717A; line-height: 1.4;">Welcome back,<br><strong id="welcome-name" style="font-size: 20px; color: #fff; font-weight: 700;"></strong></div>
                 
+                <!-- Shown instead of the graph and account list when there are no accounts yet (renderAccounts) -->
+                <div id="home-empty" class="card home-empty" hidden>
+                    <div class="home-empty-icon">+</div>
+                    <div style="font-size: 16px; font-weight: 700;">Add your first account</div>
+                    <div style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">Link a bank to start tracking your net worth across every currency.</div>
+                    <button class="auth-btn primary" style="margin-top: 6px;" onclick="switchTab('connect', document.getElementById('btn-connect'))">Add an account</button>
+                </div>
+
                 <!-- Performance Graph Card with Timeline Selector -->
-                <div class="card" style="padding: 16px; gap: 8px; cursor: pointer;" onclick="openPerformance()">
+                <div id="perf-card" class="card" style="padding: 16px; gap: 8px; cursor: pointer;" onclick="openPerformance()">
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #71717A;">
                         <span id="timeframe-title">Performance (6 Months)</span>
                         <span style="color: #00FF85; font-weight: 600; display: flex; align-items: center; gap: 4px;"><span id="timeframe-pct">…</span> <span style="font-size: 13px; color: #71717A;">›</span></span>
@@ -85,11 +93,11 @@
                         <path id="graph-area" d="" fill="url(#grad)"/>
                         <g id="graph-markers" pointer-events="none"></g>
                     </svg>
-                    <div id="graph-empty" style="display: none; font-size: 11px; color: #71717A; text-align: center; padding: 18px 0;">Not enough history to draw a graph</div>
+                    <div id="graph-empty" style="display: none; font-size: 11px; color: #71717A; text-align: center; padding: 18px 0;">Your graph builds up day by day. Check back tomorrow.</div>
                     <div id="graph-labels" style="display: flex; justify-content: space-between; font-size: 9px; color: #71717A; padding-top: 2px;"></div>
                 </div>
 
-                <div>
+                <div id="accounts-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <span style="font-size: 12px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px;">Connected Accounts</span>
                         <button onclick="toggleAccounts()" id="accounts-toggle-btn" class="interactive-btn" style="background: #18181B; border: 1px solid #27272A; color: #00FF85; font-size: 11px; padding: 4px 10px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
@@ -194,12 +202,21 @@
         </div>
 
         <!-- Bottom Navigation Bar -->
-        <div class="nav-bar">
-            <button class="nav-btn active interactive-btn" onclick="switchTab('accounts', this)" id="btn-accounts"><span>💼</span><span style="font-size: 10px;">Accounts</span></button>
-            <button class="nav-btn interactive-btn" onclick="switchTab('transfer', this)" id="btn-transfer"><span>↔️</span><span style="font-size: 10px;">Transfer</span></button>
-            <button class="nav-btn interactive-btn" onclick="switchTab('cards', this)" id="btn-cards"><span>💳</span><span style="font-size: 10px;">Cards</span></button>
-            <button class="nav-btn interactive-btn" onclick="switchTab('connect', this)" id="btn-connect"><span>➕</span><span style="font-size: 10px;">Connect</span></button>
-        </div>
+        <!-- Icon-only tab bar. aria-label gives each button its name for VoiceOver; title shows it on hover. -->
+        <nav class="nav-bar">
+            <button class="nav-btn active" onclick="switchTab('accounts', this)" id="btn-accounts" aria-label="Accounts" title="Accounts">
+                <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+            </button>
+            <button class="nav-btn" onclick="switchTab('transfer', this)" id="btn-transfer" aria-label="Transfer" title="Transfer">
+                <svg viewBox="0 0 24 24"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+            </button>
+            <button class="nav-btn" onclick="switchTab('cards', this)" id="btn-cards" aria-label="Cards" title="Cards">
+                <svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
+            </button>
+            <button class="nav-btn" onclick="switchTab('connect', this)" id="btn-connect" aria-label="Connect a bank" title="Connect a bank">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+            </button>
+        </nav>
 
         <!-- Performance detail screen (opened by tapping the Performance card) -->
         <div id="perf-screen" class="perf-screen">
@@ -421,7 +438,7 @@
                             <span class="row-label"><span class="row-icon">💱</span>Display currency</span>
                             <select id="profile-currency" onchange="setDisplayCurrency(this.value)" style="background: #121216; border: 1px solid #27272A; border-radius: 10px; padding: 8px; color: #fff; font-size: 12px;"></select>
                         </div>
-                        <div class="settings-row" onclick="toggleSampleData()">
+                        <div class="settings-row" id="sample-data-row" onclick="toggleSampleData()">
                             <span class="row-label"><span class="row-icon">🧪</span>Show sample data</span>
                             <div class="toggle" data-setting="showSampleData"></div>
                         </div>
@@ -451,32 +468,23 @@
                     </div>
                 </div>
 
-                <button onclick="openSignOutDialog()" class="interactive-btn" style="width: 100%; background: transparent; border: 1px solid #3F1D24; color: #FF4D6D; border-radius: 14px; padding: 14px; font-size: 14px; font-weight: 700;">Sign out</button>
+                <button id="signout-btn" onclick="openSignOutDialog()" class="interactive-btn" style="width: 100%; background: transparent; border: 1px solid #3F1D24; color: #FF4D6D; border-radius: 14px; padding: 14px; font-size: 14px; font-weight: 700;">Sign out</button>
             </div>
 
             <!-- Sign-out confirmation -->
             <div id="signout-dialog" style="display: none; position: absolute; inset: 0; background: rgba(9,9,11,0.85); backdrop-filter: blur(8px); z-index: 5; align-items: center; justify-content: center; padding: 24px;">
                 <div style="background: #121216; border: 1px solid #27272A; border-radius: 24px; padding: 24px; width: 100%; display: flex; flex-direction: column; gap: 16px; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.9);">
                     <div>
-                        <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Sign out of Isar?</h3>
-                        <p style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">You'll need to sign in again to see your balances.</p>
+                        <h3 id="signout-title" style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Sign out of Isar?</h3>
+                        <p id="signout-desc" style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">You'll need to sign in again to see your balances.</p>
                     </div>
                     <div style="display: flex; gap: 10px;">
                         <button onclick="closeSignOutDialog()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">Cancel</button>
-                        <button onclick="confirmSignOut()" style="flex: 1; background: #FF4D6D; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer;">Sign out</button>
+                        <button id="signout-confirm" onclick="confirmSignOut()" style="flex: 1; background: #FF4D6D; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer;">Sign out</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Signed-out state -->
-            <div id="signed-out-view" style="display: none; position: absolute; inset: 0; background: #09090B; z-index: 6; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center;">
-                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(0,255,133,0.15); color: #00FF85; font-size: 22px; display: flex; align-items: center; justify-content: center;">✓</div>
-                <div>
-                    <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Signed out</h3>
-                    <p style="font-size: 12px; color: #A1A1AA;">See you soon, <span id="signed-out-name"></span>.</p>
-                </div>
-                <button onclick="signBackIn()" class="interactive-btn" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px 24px; color: #000; font-size: 13px; font-weight: 700;">Sign back in</button>
-            </div>
         </div>
 
         <!-- Apple-style Secure Modal Overlay (Contained strictly inside phone container) -->
@@ -494,11 +502,89 @@
             </div>
         </div>
 
+        <!-- First-run setup (setup.js): shown once after creating an account. Sits under pop-ups,
+             so adding a bank here uses the same pop-up as the Connect tab. -->
+        <div id="setup-screen" class="auth-screen setup-screen" hidden>
+            <div class="setup-progress" aria-hidden="true"><span></span><span></span><span></span></div>
+
+            <div id="setup-currency" class="auth-view">
+                <h2 class="auth-heading">What's your home currency?</h2>
+                <p class="auth-sub">Your net worth is shown in this currency. You can change it any time.</p>
+                <input class="auth-input" id="setup-currency-search" type="search" placeholder="Search currencies" oninput="renderSetupCurrencies()" autocomplete="off">
+                <div id="setup-currency-list" class="setup-list grow"></div>
+                <button class="auth-btn primary" onclick="confirmSetupCurrency()">Continue</button>
+            </div>
+
+            <div id="setup-accounts" class="auth-view" hidden>
+                <button type="button" class="auth-back" onclick="showSetupStep(1)" aria-label="Back">‹</button>
+                <h2 class="auth-heading">Add your first account</h2>
+                <p class="auth-sub">Find your bank, then enter its balance. Add as many as you like.</p>
+                <div id="setup-added" class="setup-list"></div>
+                <input class="auth-input" id="setup-bank-search" type="search" placeholder="Search banks" oninput="renderSetupBanks()" autocomplete="off">
+                <div class="setup-list-label" id="setup-banks-label">Popular banks</div>
+                <div id="setup-bank-list" class="setup-list grow"></div>
+                <button class="auth-btn primary" id="setup-continue" onclick="showSetupStep(3)" hidden>Continue</button>
+                <button class="auth-link" id="setup-skip" onclick="showSetupStep(3)">Skip for now</button>
+            </div>
+
+            <div id="setup-done" class="auth-view" hidden>
+                <div class="auth-hero">
+                    <div class="setup-check">✓</div>
+                    <h2 class="auth-heading">You're all set</h2>
+                    <p class="auth-tagline" id="setup-summary"></p>
+                    <div id="setup-networth" class="setup-networth"></div>
+                </div>
+                <button class="auth-btn primary" onclick="finishSetup()">Go to my dashboard</button>
+            </div>
+        </div>
+
+        <!-- Sign-in screens (signin.js). Shown over everything until someone is signed in. -->
+        <div id="auth-screen" class="auth-screen" hidden>
+            <!-- Welcome -->
+            <div id="auth-welcome" class="auth-view">
+                <div class="auth-hero">
+                    <img src="icons/icon-192.png" alt="" class="auth-logo">
+                    <h1 class="auth-title">Isar</h1>
+                    <p class="auth-tagline">One net worth. Every bank, every currency.</p>
+                </div>
+                <div class="auth-actions">
+                    <button class="auth-btn primary" onclick="showAuthView('auth-signup')">Create account</button>
+                    <button class="auth-btn secondary" onclick="showAuthView('auth-signin')">Sign in</button>
+                    <button id="auth-demo-btn" class="auth-link" onclick="enterDemo()">Explore the demo</button>
+                </div>
+            </div>
+
+            <!-- Sign in. autocomplete lets iPhone offer saved passwords (with Face ID). -->
+            <form id="auth-signin" class="auth-view" hidden onsubmit="submitSignIn(event)" novalidate>
+                <button type="button" class="auth-back" onclick="showAuthView('auth-welcome')" aria-label="Back">‹</button>
+                <h2 class="auth-heading">Welcome back</h2>
+                <p class="auth-sub">Sign in to see your net worth.</p>
+                <input class="auth-input" id="signin-email" type="email" placeholder="Email" autocomplete="username" inputmode="email" autocapitalize="off" required>
+                <input class="auth-input" id="signin-password" type="password" placeholder="Password" autocomplete="current-password" required>
+                <p class="auth-error" id="signin-error" hidden></p>
+                <button class="auth-btn primary" type="submit">Sign in</button>
+            </form>
+
+            <!-- Create account -->
+            <form id="auth-signup" class="auth-view" hidden onsubmit="submitSignUp(event)" novalidate>
+                <button type="button" class="auth-back" onclick="showAuthView('auth-welcome')" aria-label="Back">‹</button>
+                <h2 class="auth-heading">Create your account</h2>
+                <p class="auth-sub">Track every account, in every currency, in one place.</p>
+                <input class="auth-input" id="signup-name" type="text" placeholder="Full name" autocomplete="name" autocapitalize="words" required>
+                <input class="auth-input" id="signup-email" type="email" placeholder="Email" autocomplete="username" inputmode="email" autocapitalize="off" required>
+                <input class="auth-input" id="signup-password" type="password" placeholder="Password (8+ characters)" autocomplete="new-password" required>
+                <p class="auth-error" id="signup-error" hidden></p>
+                <button class="auth-btn primary" type="submit">Create account</button>
+                <p class="auth-note">Prototype: accounts are kept on this device only, and passwords aren't checked yet.</p>
+            </form>
+        </div>
+
     </div>
 
     <!-- Scripts load in this order; main.js must stay last. -->
     <script src="js/historynetworth.js"></script>
     <script src="js/data.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/state.js"></script>
     <script src="js/history.js"></script>
@@ -510,6 +596,9 @@
     <script src="js/connect.js"></script>
     <script src="js/profile.js"></script>
     <script src="js/performance.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/signin.js"></script>
+    <script src="js/setup.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

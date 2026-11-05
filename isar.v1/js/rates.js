@@ -203,6 +203,7 @@ function selectCurrency(code) {
     renderGraph();
     refreshAccountViews();
     renderCurrencyMenu();
+    renderConnectTab();                       // suggested banks follow the home currency
     document.getElementById('curr-menu').classList.remove('open');
 }
 

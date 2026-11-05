@@ -6,7 +6,8 @@
 // under one key, as JSON. It survives closing and reopening the page in the same
 // browser. To wipe it, use "Clear saved data" on the Connect tab.
 // Bump the version in the key if the saved shape ever changes incompatibly.
-const STORAGE_KEY = 'isar.savedData.v1';
+// Each signed-in user (and the demo) has their own key; see savedDataKeyFor() in auth.js.
+const STORAGE_KEY = savedDataKeyFor(AUTH_SESSION);
 
 // A saved snapshot is only used if it has a date and both balances and rates.
 function isValidSnapshot(s) {
@@ -24,10 +25,11 @@ function loadSavedData() {
             settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
             displayCurrency: typeof data.displayCurrency === 'string' ? data.displayCurrency : null,
             // Daily net-worth records (see snapshots.js), same shape as HISTORY records.
-            snapshots: Array.isArray(data.snapshots) ? data.snapshots.filter(isValidSnapshot) : []
+            snapshots: Array.isArray(data.snapshots) ? data.snapshots.filter(isValidSnapshot) : [],
+            setupDone: data.setupDone === true      // finished the first-run setup (setup.js)
         };
     } catch (e) {
-        return { linkedAccounts: [], settings: {}, displayCurrency: null, snapshots: [] };
+        return { linkedAccounts: [], settings: {}, displayCurrency: null, snapshots: [], setupDone: false };
     }
 }
 
@@ -40,6 +42,13 @@ function saveData() {
 }
 
 Object.assign(USER_SETTINGS, SAVED.settings);
+
+// The signed-in person replaces the sample user. The demo keeps the sample user and always shows sample data.
+if (AUTH_SESSION && !AUTH_SESSION.demo) {
+    Object.assign(USER, { name: AUTH_SESSION.name, email: AUTH_SESSION.email, memberSince: AUTH_SESSION.memberSince });
+}
+if (AUTH_SESSION && AUTH_SESSION.demo) USER_SETTINGS.showSampleData = true;
+else if (SAVED.settings.showSampleData === undefined) USER_SETTINGS.showSampleData = false;   // real users start with only their own accounts
 
 // Banks the user linked in the Connect tab are added after the built-in accounts.
 // Only accounts with a valid balance and a currency the app knows are restored.

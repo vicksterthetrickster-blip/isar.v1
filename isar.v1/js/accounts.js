@@ -56,6 +56,12 @@ function renderAccountRows() {
 }
 
 function renderAccounts() {
+    // No accounts yet: an "Add your first account" card instead of an empty graph and list.
+    const empty = !ACCOUNTS.length;
+    document.getElementById('home-empty').hidden = !empty;
+    document.getElementById('perf-card').hidden = empty;
+    document.getElementById('accounts-section').hidden = empty;
+
     renderAccountRows();
     document.getElementById('toggle-text').innerText = accountCountLabel();
 

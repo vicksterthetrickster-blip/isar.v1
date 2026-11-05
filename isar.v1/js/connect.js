@@ -41,11 +41,7 @@ function filterBanks() {
         return;
     }
 
-    const filtered = topBanks
-        .map(b => ({ bank: b, rank: bankMatchRank(b, query) }))
-        .filter(x => x.rank >= 0)
-        .sort((a, b) => a.rank - b.rank || a.bank.name.length - b.bank.name.length || a.bank.name.localeCompare(b.bank.name))
-        .map(x => x.bank);
+    const filtered = searchBanks(query);
 
     if (filtered.length === 0) {
         resultsBox.innerHTML = '<div style="padding: 12px 14px; font-size: 12px; color: #71717A;">No banks match your search</div>';
@@ -54,7 +50,7 @@ function filterBanks() {
     }
 
     resultsBox.innerHTML = filtered.map(b => `
-        <div onclick="promptConnect(${topBanks.indexOf(b)})" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #27272A;" onmouseover="this.style.background='#27272A'" onmouseout="this.style.background='transparent'">
+        <div class="bank-result" onclick="promptConnect(${topBanks.indexOf(b)})">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <div style="width: 28px; height: 28px; border-radius: 6px; background: ${b.color}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">${b.name[0]}</div>
                 <span style="font-size: 13px; font-weight: 600; color: #fff;">${highlightBankName(b.name, query)}</span>
@@ -66,8 +62,40 @@ function filterBanks() {
     resultsBox.style.display = 'block';
 }
 
+// Banks matching a (lower-case) search, best match first. Used by the Connect tab and setup.
+function searchBanks(query) {
+    return topBanks
+        .map(b => ({ bank: b, rank: bankMatchRank(b, query) }))
+        .filter(x => x.rank >= 0)
+        .sort((a, b) => a.rank - b.rank || a.bank.name.length - b.bank.name.length || a.bank.name.localeCompare(b.bank.name))
+        .map(x => x.bank);
+}
+
 // --- Connect tab: linking banks (simulated) and remembering them ---
-const SUGGESTED_BANKS = ['JPMorgan Chase', 'Monzo'];
+// Suggested banks depend on the home (display) currency: banks people with that currency
+// most likely use. Names must match topBanks in data.js.
+const BANKS_BY_CURRENCY = {
+    AUD: ['Commonwealth Bank', 'Westpac', 'ANZ Bank', 'National Australia Bank'],
+    USD: ['JPMorgan Chase', 'Bank of America', 'Wells Fargo', 'Citigroup'],
+    GBP: ['Monzo', 'Barclays', 'HSBC Holdings', 'Lloyds Banking Group', 'NatWest Group'],
+    EUR: ['BNP Paribas', 'Banco Santander', 'Deutsche Bank', 'BBVA', 'Rabobank'],
+    CAD: ['Toronto-Dominion Bank', 'Scotiabank', 'Quebec National Bank'],
+    JPY: ['Mitsubishi UFJ Financial Group', 'Nomura Holdings'],
+    CNY: ['Industrial and Commercial Bank of China', 'China Construction Bank', 'Bank of China', 'Agricultural Bank of China'],
+    HKD: ['HSBC Holdings', 'Standard Chartered', 'Bank of China'],
+    SGD: ['Standard Chartered', 'HSBC Holdings', 'Citigroup'],
+    CHF: ['UBS Group'],
+    SEK: ['Nordea'], NOK: ['Nordea'], DKK: ['Nordea']
+};
+const DEFAULT_SUGGESTED_BANKS = ['HSBC Holdings', 'JPMorgan Chase', 'Citigroup', 'Standard Chartered'];
+
+// Up to `limit` suggested banks for a currency that the user hasn't linked yet.
+function suggestedBanksFor(code, limit) {
+    return (BANKS_BY_CURRENCY[code] || DEFAULT_SUGGESTED_BANKS)
+        .filter(n => !isBankLinked(n))
+        .map(findBank)
+        .slice(0, limit || 4);
+}
 
 function findBank(name) {
     return topBanks.find(b => b.name === name) || { name: name, code: name[0], color: '#1E1E24' };
@@ -99,7 +127,7 @@ function renderConnectTab() {
         '</div>'
     ).join('');
 
-    const suggestions = SUGGESTED_BANKS.filter(n => !isBankLinked(n)).map(findBank);
+    const suggestions = suggestedBanksFor(activeCurrency);
     document.getElementById('suggested-section').style.display = suggestions.length ? 'flex' : 'none';
     document.getElementById('connect-container').innerHTML = suggestions.map(b =>
         '<div class="account-row" style="margin-bottom: 0;">' +
@@ -113,6 +141,7 @@ function renderConnectTab() {
 // Everything that shows accounts, redrawn after one is added or removed.
 function refreshAfterAccountChange() {
     recordDailySnapshot();
+    refreshSetup();
     renderAccounts();
     renderConnectTab();
     renderPortfolioValue();
@@ -221,19 +250,23 @@ function addLinkedAccount(bankName, balance, currency) {
 }
 
 function removeLinkedAccount(id) {
-    const idx = ACCOUNTS.findIndex(a => a.id === id && a.userLinked);
-    if (idx === -1) return;
-    if (!confirm('Remove ' + ACCOUNTS[idx].name + ' from your accounts?')) return;
-    ACCOUNTS.splice(idx, 1);
-    if (openAccountId === id) closeAccount();
-    saveLinkedAccounts();
-    refreshAfterAccountChange();
+    const account = ACCOUNTS.find(a => a.id === id && a.userLinked);
+    if (!account) return;
+    showConfirmDialog('Remove ' + account.name + '?', 'Its balance and history will be removed from Isar.', 'Remove', () => {
+        const idx = ACCOUNTS.indexOf(account);
+        if (idx === -1) return;
+        ACCOUNTS.splice(idx, 1);
+        if (openAccountId === id) closeAccount();
+        saveLinkedAccounts();
+        refreshAfterAccountChange();
+    });
 }
 
 function resetSavedData() {
-    if (!confirm('Clear all saved data? Linked banks and settings go back to the defaults.')) return;
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-    location.reload();
+    showConfirmDialog('Clear all saved data?', 'Linked banks, history and settings go back to the defaults.', 'Clear', () => {
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        location.reload();
+    });
 }
 
 let selectedBankName = '';

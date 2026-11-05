@@ -16,6 +16,7 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 | `index.html` | Page structure only: screens, tabs, buttons |
 | `css/styles.css` | All styling |
 | `js/data.js` | Fixed data: bank list, user, sample accounts, supported currencies (`CURRENCIES`) |
+| `js/auth.js` | Sign up / sign in / sign out (MOCK: swap its insides for a real service like Supabase) |
 | `js/storage.js` | Saving/loading what the user changes (localStorage) |
 | `js/state.js` | What the app is currently showing (selected currency, timeframe, open screens) |
 | `js/history.js` | Turns history records into graph data |
@@ -27,6 +28,9 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 | `js/connect.js` | Connect tab: bank search and linking (incl. the mock account history, `generateMockAccountHistory`) |
 | `js/profile.js` | Profile, settings, sign out |
 | `js/performance.js` | Performance screen |
+| `js/ui.js` | Native feel: menus that close themselves, slide-over screens, swipe-back, confirm pop-up |
+| `js/signin.js` | Sign-in screens: welcome, sign in, create account, demo |
+| `js/setup.js` | First-run setup after creating an account: home currency, first accounts, done |
 | `js/main.js` | Tab switching and start-up |
 | 'js/historynetworth.js' | Made-up History data for networth |
 
@@ -34,13 +38,15 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 ## Rules to keep it working
 
 - **Script order matters.** The `<script>` tags at the bottom of `index.html` load in order.
-  `data.js` → `storage.js` → `state.js` come first, and `main.js` must stay last.
+  `data.js` → `auth.js` → `storage.js` → `state.js` come first, and `main.js` must stay last.
   New files go anywhere between `state.js` and `main.js`.
 - **Code that runs on load goes in `main.js`.** Other files should only *define*
   functions and variables, so they never call something that isn't loaded yet.
 - **To remember something between sessions:** add it to the object in
   `loadSavedData()` (`storage.js`), set `SAVED.yourThing = ...`, then call `saveData()`.
-- **Clear saved data:** the link at the bottom of the Connect tab.
+- **Clear saved data:** the link at the bottom of the Connect tab (clears the signed-in person's data only).
+- **Sign-in:** each person (and the demo) has their own saved data. Screens only call the functions in
+  `auth.js`, so a real sign-in service replaces that one file.
 - **Sample data vs your own data:** Account → Preferences → "Show sample data". Off = only the
   accounts you added (sample accounts and made-up history are hidden, not deleted).
 - **Your own accounts** can be updated (balance), edited (name, type) or removed from their account screen.
