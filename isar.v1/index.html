@@ -180,7 +180,7 @@
                 
                 <!-- Search Box -->
                 <div style="position: relative;">
-                    <input type="text" id="bank-search" oninput="filterBanks()" placeholder="Search top global banks..." style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px 14px; color: #fff; font-size: 13px; outline: none; width: 100%;">
+                    <input type="text" id="bank-search" oninput="filterBanks()" placeholder="Search banks, brokers and crypto..." style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px 14px; color: #fff; font-size: 13px; outline: none; width: 100%;">
                     <div id="bank-results" style="display: none; position: absolute; top: 48px; left: 0; right: 0; background: #18181B; border: 1px solid #27272A; border-radius: 12px; max-height: 220px; overflow-y: auto; z-index: 30; box-shadow: 0 15px 30px rgba(0,0,0,0.8);"></div>
                 </div>
 
@@ -520,7 +520,7 @@
                 <h2 class="auth-heading">Add your first account</h2>
                 <p class="auth-sub">Find your bank, then enter its balance. Add as many as you like.</p>
                 <div id="setup-added" class="setup-list"></div>
-                <input class="auth-input" id="setup-bank-search" type="search" placeholder="Search banks" oninput="renderSetupBanks()" autocomplete="off">
+                <input class="auth-input" id="setup-bank-search" type="search" placeholder="Search banks, brokers and crypto" oninput="renderSetupBanks()" autocomplete="off">
                 <div class="setup-list-label" id="setup-banks-label">Popular banks</div>
                 <div id="setup-bank-list" class="setup-list grow"></div>
                 <button class="auth-btn primary" id="setup-continue" onclick="showSetupStep(3)" hidden>Continue</button>

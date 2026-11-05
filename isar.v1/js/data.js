@@ -1,7 +1,9 @@
 // data.js — fixed app data: bank list, user, accounts, currencies.
 // Loaded first. Other files read these values; nothing here touches the page.
 
-// Top 40 Global Banks Database Mockup
+// Every institution you can link: the top 40 global banks, then fintechs, brokers and crypto
+// exchanges. `domain` is the website, used to fetch the logo (logos.js). `kind` (when not a
+// bank) lets a search for a category word find it, e.g. "crypto" finds every exchange.
 const topBanks = [
     { name: "JPMorgan Chase", code: "JPM", color: "#1D4ED8", domain: "chase.com" },
     { name: "Bank of America", code: "BAC", color: "#DC2626", domain: "bankofamerica.com" },
@@ -42,8 +44,48 @@ const topBanks = [
     { name: "Barclays", code: "BARC", color: "#00AEEF", domain: "barclays.com" },
     { name: "NatWest Group", code: "NWG", color: "#581C87", domain: "natwest.com" },
     { name: "Lloyds Banking Group", code: "LLOY", color: "#006A4E", domain: "lloydsbank.com" },
-    { name: "Monzo", code: "M", color: "#FF5964", domain: "monzo.com" }
+    { name: "Monzo", code: "M", color: "#FF5964", domain: "monzo.com" },
+
+    // Fintechs and digital banks
+    { name: "Revolut", code: "REV", color: "#191C1F", domain: "revolut.com", kind: "fintech" },
+    { name: "Wise", code: "WISE", color: "#163300", domain: "wise.com", kind: "fintech" },
+    { name: "N26", code: "N26", color: "#36A18B", domain: "n26.com", kind: "fintech" },
+    { name: "Starling Bank", code: "STRL", color: "#6935D3", domain: "starlingbank.com", kind: "fintech" },
+    { name: "Up", code: "UP", color: "#FF7A64", domain: "up.com.au", kind: "fintech" },
+    { name: "ING", code: "ING", color: "#FF6200", domain: "ing.com", kind: "fintech" },
+    { name: "Macquarie Bank", code: "MQG", color: "#1A1A1A", domain: "macquarie.com.au", kind: "fintech" },
+    { name: "Chime", code: "CHM", color: "#1EC677", domain: "chime.com", kind: "fintech" },
+    { name: "PayPal", code: "PYPL", color: "#003087", domain: "paypal.com", kind: "fintech" },
+
+    // Brokers and investing apps
+    { name: "Interactive Brokers", code: "IBKR", color: "#D71920", domain: "interactivebrokers.com", kind: "broker" },
+    { name: "Charles Schwab", code: "SCHW", color: "#00A0DF", domain: "schwab.com", kind: "broker" },
+    { name: "Fidelity", code: "FID", color: "#368727", domain: "fidelity.com", kind: "broker" },
+    { name: "Vanguard", code: "VG", color: "#96151D", domain: "vanguard.com", kind: "broker" },
+    { name: "Robinhood", code: "HOOD", color: "#CCFF00", domain: "robinhood.com", kind: "broker" },
+    { name: "eToro", code: "ETOR", color: "#13C636", domain: "etoro.com", kind: "broker" },
+    { name: "Trading 212", code: "T212", color: "#1A73E8", domain: "trading212.com", kind: "broker" },
+    { name: "CommSec", code: "CSEC", color: "#FFCC00", domain: "commsec.com.au", kind: "broker" },
+    { name: "Stake", code: "STK", color: "#111111", domain: "hellostake.com", kind: "broker" },
+    { name: "Hargreaves Lansdown", code: "HL", color: "#0A2240", domain: "hl.co.uk", kind: "broker" },
+
+    // Crypto exchanges
+    { name: "Crypto.com", code: "CRO", color: "#002D74", domain: "crypto.com", kind: "crypto" },
+    { name: "Coinbase", code: "COIN", color: "#0052FF", domain: "coinbase.com", kind: "crypto" },
+    { name: "Binance", code: "BNB", color: "#F0B90B", domain: "binance.com", kind: "crypto" },
+    { name: "Kraken", code: "KRKN", color: "#5741D9", domain: "kraken.com", kind: "crypto" },
+    { name: "Gemini", code: "GEMI", color: "#00B4D8", domain: "gemini.com", kind: "crypto" },
+    { name: "OKX", code: "OKX", color: "#111111", domain: "okx.com", kind: "crypto" },
+    { name: "Swyftx", code: "SWYF", color: "#0072F5", domain: "swyftx.com", kind: "crypto" }
 ];
+
+// Words that find a whole category in search: typing the start of any of these
+// (e.g. "cry", "broker", "stocks") lists every institution of that kind.
+const KIND_SEARCH_WORDS = {
+    crypto: ['crypto', 'cryptocurrency', 'bitcoin', 'exchange'],
+    broker: ['broker', 'brokerage', 'shares', 'stocks', 'investing', 'trading'],
+    fintech: ['fintech', 'neobank', 'digital']
+};
 
 // --- Logged-in user ---
 // SINGLE SOURCE OF TRUTH for who is signed in. In production this is the

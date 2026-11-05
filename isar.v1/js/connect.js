@@ -11,6 +11,8 @@ function bankMatchRank(bank, query) {
     if (name.startsWith(query)) return 1;                           // name starts with it
     if (words.some(w => w === query)) return 2;                     // a whole word matches
     if (words.some(w => w.startsWith(query))) return 3;             // a word starts with it
+    const kindWords = KIND_SEARCH_WORDS[bank.kind] || [];
+    if (query.length >= 3 && kindWords.some(w => w.startsWith(query))) return 4;   // its category, e.g. "crypto"
     return -1;                                                      // no match
 }
 
