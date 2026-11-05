@@ -80,6 +80,25 @@
         .perf-timeframe-btn { flex: 1; padding: 7px 0; border-radius: 9px; font-size: 11px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
         #perf-graph-svg { touch-action: none; }
         #perf-guide, #perf-guide-y, #perf-dot { transition: opacity 0.12s ease; }
+        /* --- On a real phone (or opened from the home screen): no mockup frame, fill the screen ---
+           On a computer the app stays inside the phone-shaped frame above.
+           env(safe-area-inset-*) is the space taken by the iPhone's notch / Dynamic Island (top)
+           and home bar (bottom), so the header and tab bar stay clear of them. */
+        @media (max-width: 500px), (display-mode: standalone) {
+            html, body { background: #09090B !important; }
+            body { width: 100%; height: 100%; height: 100dvh; }
+            .phone-frame {
+                width: 100%; max-width: none;
+                height: 100%; max-height: none;
+                border: none; border-radius: 0; box-shadow: none;
+            }
+            .header { padding-top: calc(12px + env(safe-area-inset-top)); }
+            .nav-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+            .content { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+            /* iPhone zooms into any text box under 16px when you tap it; 16px stops that */
+            input, select { font-size: 16px !important; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .rates-btn.refreshing .rates-icon, .pulsing, .status-swap, .value-refresh { animation: none; }
         }
