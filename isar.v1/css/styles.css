@@ -86,13 +86,15 @@
            and home bar (bottom), so the header and tab bar stay clear of them. */
         @media (max-width: 500px), (display-mode: standalone) {
             html, body { background: #09090B !important; }
-            body { width: 100%; height: 100%; height: 100dvh; }
+            /* Pinned to the four edges of the screen. (Centring it inside <body> cut off the top and
+               bottom on iPhone, where the home-screen app's body is shorter than the real screen.) */
             .phone-frame {
-                width: 100%; max-width: none;
-                height: 100%; max-height: none;
+                position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+                width: auto; max-width: none;
+                height: auto; max-height: none;
                 border: none; border-radius: 0; box-shadow: none;
             }
-            .header { padding-top: calc(12px + env(safe-area-inset-top)); }
+            .header { flex-shrink: 0; padding-top: calc(12px + env(safe-area-inset-top)); }
             .nav-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
             .content { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
             /* iPhone zooms into any text box under 16px when you tap it; 16px stops that */
