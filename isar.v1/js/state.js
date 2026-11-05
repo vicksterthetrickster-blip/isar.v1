@@ -7,6 +7,7 @@ let ratesAsOf = null;                 // the date the ECB published the rates we
 let ratesUpdatedAt = null;            // when THIS page last fetched them (a Date, i.e. the refresh time)
 let ratesLastFetchFailed = false;
 let ratesRefreshing = false;
+let ratesNotPublished = [];           // currencies the last live fetch didn't include (still on an older rate)
 
 // --- Net worth history graph ---
 // HISTORY is loaded from historynetworth.js. Each record holds native account

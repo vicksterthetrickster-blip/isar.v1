@@ -52,7 +52,8 @@ function updateRatesStatus() {
     if (ratesAreLive && !ratesLastFetchFailed) {
         main.innerText = 'Updated ' + formatRefreshStamp(ratesUpdatedAt);
         main.style.color = '#00FF85';
-        sub.innerText = 'ECB fixing: ' + (ratesAsOf === localISODate(new Date()) ? 'today' : formatRateDate(ratesAsOf));
+        sub.innerText = 'ECB fixing: ' + (ratesAsOf === localISODate(new Date()) ? 'today' : formatRateDate(ratesAsOf)) +
+            (ratesNotPublished.length ? ' · not updated: ' + ratesNotPublished.join(', ') : '');
     } else if (ratesAreLive) {
         main.innerText = 'Couldn\u2019t refresh \u00b7 using last rates';
         main.style.color = '#71717A';
@@ -90,21 +91,23 @@ function playRefreshAnimations() {
 // Frankfurter serves the European Central Bank's daily reference rates (free, no key).
 // The ECB publishes once per working day (~16:00 CET), so the newest rates can be
 // from an earlier day than today. The second address is the older host, kept as a backup.
+// It asks for EVERY currency the ECB currently publishes (no list of symbols), so a
+// currency the ECB stops publishing can't make the whole request fail; it's just missing
+// from the answer, and fetchLiveRates() notes it in ratesNotPublished.
 const RATE_SOURCES = [
-    targets => 'https://api.frankfurter.dev/v1/latest?base=' + BASE_CURRENCY + '&symbols=' + targets,
-    targets => 'https://api.frankfurter.app/latest?from=' + BASE_CURRENCY + '&to=' + targets
+    () => 'https://api.frankfurter.dev/v1/latest?base=' + BASE_CURRENCY,
+    () => 'https://api.frankfurter.app/latest?from=' + BASE_CURRENCY
 ];
 const RATE_TIMEOUT_MS = 8000;     // give up on a request after this long
 const MIN_REFRESH_MS = 1200;      // a manual refresh always animates at least this long
 
 async function fetchRatesFromAnySource() {
-    const targets = Object.keys(EXCHANGE_RATES).filter(c => c !== BASE_CURRENCY).join(',');
     let lastError = new Error('No rate source available');
     for (const buildUrl of RATE_SOURCES) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), RATE_TIMEOUT_MS);
         try {
-            const response = await fetch(buildUrl(targets), { signal: controller.signal });
+            const response = await fetch(buildUrl(), { signal: controller.signal });
             if (!response.ok) throw new Error('Rate request failed: ' + response.status);
             const data = await response.json();
             if (!data || !data.rates || !data.date) throw new Error('Unexpected rate response');
@@ -131,6 +134,9 @@ async function fetchLiveRates(manual) {
         Object.keys(data.rates).forEach(code => {
             if (code in EXCHANGE_RATES && data.rates[code] > 0) EXCHANGE_RATES[code] = data.rates[code];
         });
+        // Currencies in our list that the ECB didn't publish keep their last known rate.
+        ratesNotPublished = Object.keys(EXCHANGE_RATES).filter(c => c !== BASE_CURRENCY && !(data.rates[c] > 0));
+        if (ratesNotPublished.length) console.warn('No live rate published for: ' + ratesNotPublished.join(', ') + ' (using last known rate)');
         ratesAreLive = true;
         ratesLastFetchFailed = false;
         ratesAsOf = data.date;
@@ -161,6 +167,13 @@ async function fetchLiveRates(manual) {
 
 function formatMoney(value) {
     return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// <option> tags for every supported currency, e.g. "🇯🇵 JPY · Japanese Yen".
+// Used by the link-a-bank form and the display-currency picker.
+function currencyOptionsHTML(selected) {
+    return CURRENCIES.map(c => '<option value="' + c.code + '"' + (c.code === selected ? ' selected' : '') + '>' +
+        c.flag + ' ' + c.code + ' · ' + c.name + '</option>').join('');
 }
 
 function toggleCurrencyMenu() {

@@ -47,3 +47,8 @@ SAVED.linkedAccounts.forEach(a => {
     if (!a || !a.id || !CURRENCY_META[a.currency] || typeof a.balance !== 'number') return;
     if (!ACCOUNTS.some(x => x.id === a.id)) ACCOUNTS.push(Object.assign({}, a, { userLinked: true }));
 });
+
+// "Start fresh": with sample data off, only the user's own accounts are kept.
+if (!USER_SETTINGS.showSampleData) {
+    for (let i = ACCOUNTS.length - 1; i >= 0; i--) if (!ACCOUNTS[i].userLinked) ACCOUNTS.splice(i, 1);
+}

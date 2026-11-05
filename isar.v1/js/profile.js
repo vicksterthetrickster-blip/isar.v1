@@ -39,14 +39,18 @@ function toggleSetting(key) {
     renderSettings();
 }
 
-// Display-currency buttons: the same currency the net worth card uses.
+// Display-currency picker: the same currency the net worth card uses.
+// A dropdown rather than buttons, because there are now ~30 currencies.
 function renderProfileCurrency() {
-    document.getElementById('profile-currency').innerHTML = Object.keys(CURRENCY_META).map(code => {
-        const active = code === activeCurrency;
-        return '<button class="interactive-btn" onclick="setDisplayCurrency(\'' + code + '\')" style="flex: 1; padding: 8px 0; border-radius: 10px; font-size: 11px; ' +
-            'border: 1px solid ' + (active ? '#00FF85' : '#27272A') + '; background: ' + (active ? '#27272A' : '#18181B') + '; ' +
-            'color: ' + (active ? '#00FF85' : '#fff') + '; font-weight: ' + (active ? '700' : '600') + ';">' + CURRENCY_META[code].flag + ' ' + code + '</button>';
-    }).join('');
+    document.getElementById('profile-currency').innerHTML = currencyOptionsHTML(activeCurrency);
+}
+
+// "Start fresh" switch. The sample accounts are added or removed while the app
+// starts up (storage.js), so the page reloads to apply it. Nothing is deleted:
+// switching back on brings the sample data back.
+function toggleSampleData() {
+    toggleSetting('showSampleData');
+    location.reload();
 }
 
 function setDisplayCurrency(code) {

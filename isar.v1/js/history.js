@@ -31,7 +31,9 @@ function accountsInBoth(a, b) {
 
 // A linked account's balance on a date, from its own history: the latest point
 // on or before that date, or null if its history starts later.
+// Made-up (mock) history from before the account was added only counts while sample data is shown.
 function getBalanceOnDate(account, date) {
+    if (!USER_SETTINGS.showSampleData && account.historySource === 'mock' && date < account.addedDate) return null;
     let found = null;
     for (const h of account.history) {
         if (!h || typeof h.balance !== 'number') continue;
@@ -41,12 +43,15 @@ function getBalanceOnDate(account, date) {
     return found;
 }
 
-// All history, oldest first: sample HISTORY, then the user's saved daily snapshots,
-// then today built live from ACCOUNTS. If two share a date, the later source wins.
-// Records that don't include a linked account get its balance from that account's history.
+// All history, oldest first: sample HISTORY (only while sample data is shown), then the
+// user's saved daily snapshots, then today built live from ACCOUNTS. If two share a date,
+// the later source wins. Records that don't include a linked account get its balance from
+// that account's history.
+// Older records only hold rates for the currencies the app had back then, so any missing
+// rate is filled in with today's rate (an approximation, but better than dropping the point).
 function getHistoryRecords() {
     const byDate = {};
-    if (typeof HISTORY !== 'undefined') HISTORY.forEach(r => { byDate[r.date] = r; });
+    if (USER_SETTINGS.showSampleData && typeof HISTORY !== 'undefined') HISTORY.forEach(r => { byDate[r.date] = r; });
     SAVED.snapshots.forEach(r => { byDate[r.date] = r; });
     const today = buildSnapshot(localISODate(new Date()));
     byDate[today.date] = today;
@@ -54,14 +59,13 @@ function getHistoryRecords() {
     const withHistory = ACCOUNTS.filter(a => Array.isArray(a.history) && a.history.length);
     return Object.keys(byDate).sort().map(date => {
         const record = byDate[date];
-        const missing = withHistory.filter(a => record.balances[a.id] === undefined);
-        if (!missing.length) return record;
+        const rates = Object.assign({}, EXCHANGE_RATES, record.rates);
         const balances = Object.assign({}, record.balances);
-        missing.forEach(a => {
+        withHistory.filter(a => balances[a.id] === undefined).forEach(a => {
             const balance = getBalanceOnDate(a, date);
             if (balance !== null) balances[a.id] = balance;
         });
-        return Object.assign({}, record, { balances: balances });
+        return { date: record.date, balances: balances, rates: rates };
     });
 }
 // The raw history records that fall inside a timeframe, oldest first.

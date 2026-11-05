@@ -49,6 +49,8 @@
         .dropdown-menu.open { display: block; }
         .dropdown-item { width: 100%; background: transparent; border: none; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #fff; font-size: 12px; transition: background 0.1s; }
         .dropdown-item:hover, .dropdown-item.active { background: #27272A; color: #00FF85; font-weight: 700; }
+        /* ~30 currencies: the lists scroll instead of running off the screen */
+        #curr-items, #acct-curr-items { max-height: 260px; overflow-y: auto; }
         .tab-panel { display: none; flex-direction: column; gap: 16px; animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .tab-panel.active { display: flex; }
         .interactive-btn { transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s; cursor: pointer; }

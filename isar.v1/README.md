@@ -15,7 +15,7 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 |---|---|
 | `index.html` | Page structure only: screens, tabs, buttons |
 | `css/styles.css` | All styling |
-| `js/data.js` | Fixed data: bank list, user, accounts, currencies |
+| `js/data.js` | Fixed data: bank list, user, sample accounts, supported currencies (`CURRENCIES`) |
 | `js/storage.js` | Saving/loading what the user changes (localStorage) |
 | `js/state.js` | What the app is currently showing (selected currency, timeframe, open screens) |
 | `js/history.js` | Turns history records into graph data |
@@ -41,3 +41,9 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 - **To remember something between sessions:** add it to the object in
   `loadSavedData()` (`storage.js`), set `SAVED.yourThing = ...`, then call `saveData()`.
 - **Clear saved data:** the link at the bottom of the Connect tab.
+- **Sample data vs your own data:** Account → Preferences → "Show sample data". Off = only the
+  accounts you added (sample accounts and made-up history are hidden, not deleted).
+- **Your own accounts** can be updated (balance), edited (name, type) or removed from their account screen.
+  Each balance update is saved in that account's history.
+- **To add a currency:** add a line to `CURRENCIES` in `data.js`. It must be one the European Central
+  Bank publishes (see https://api.frankfurter.dev/v1/currencies), or it will never get a live rate.

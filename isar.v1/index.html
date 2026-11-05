@@ -313,6 +313,9 @@
                     <div id="acct-converted" style="font-size: 12px; color: #71717A;"></div>
                 </div>
 
+                <!-- Update balance / Edit / Remove (your own accounts only; filled by renderAcctActions) -->
+                <div id="acct-actions" style="display: flex; gap: 8px;"></div>
+
                 <!-- Balance history for this account -->
                 <div class="card" style="padding: 16px; gap: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #71717A;">
@@ -404,7 +407,11 @@
                     <div class="settings-group">
                         <div class="settings-row" style="flex-direction: column; align-items: stretch; cursor: default;">
                             <span class="row-label"><span class="row-icon">💱</span>Display currency</span>
-                            <div id="profile-currency" style="display: flex; gap: 6px;"></div>
+                            <select id="profile-currency" onchange="setDisplayCurrency(this.value)" style="background: #121216; border: 1px solid #27272A; border-radius: 10px; padding: 8px; color: #fff; font-size: 12px;"></select>
+                        </div>
+                        <div class="settings-row" onclick="toggleSampleData()">
+                            <span class="row-label"><span class="row-icon">🧪</span>Show sample data</span>
+                            <div class="toggle" data-setting="showSampleData"></div>
                         </div>
                         <div class="settings-row" onclick="toggleSetting('notifications')">
                             <span class="row-label"><span class="row-icon">🔔</span>Notifications</span>

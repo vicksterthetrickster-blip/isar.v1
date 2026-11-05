@@ -20,8 +20,8 @@ function accountRowHTML(account, extraStyle) {
     return '<div class="account-row" onclick="openAccount(\'' + account.id + '\')"' + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' +
         '<div style="display: flex; align-items: center; gap: 12px;">' +
             '<div style="width: 36px; height: 36px; border-radius: 10px; background: ' + account.color + '; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">' + account.letter + '</div>' +
-            '<div><div style="font-size: 13px; font-weight: 600;">' + account.name + '</div>' +
-            '<div style="font-size: 11px; color: #71717A;">' + account.type + '</div></div>' +
+            '<div><div style="font-size: 13px; font-weight: 600;">' + escapeHTML(account.name) + '</div>' +
+            '<div style="font-size: 11px; color: #71717A;">' + escapeHTML(account.type) + '</div></div>' +
         '</div>' +
         '<div style="display: flex; align-items: center; gap: 8px;">' +
             '<div style="text-align: right;">' +
@@ -37,13 +37,22 @@ function accountCountLabel() {
     return ACCOUNTS.length + ' accounts';
 }
 
+// Linked banks are listed first (newest on top), so a bank linked on the Connect tab
+// shows straight away instead of being folded behind the "+ N accounts" toggle.
+function getAccountsInDisplayOrder() {
+    const linked = ACCOUNTS.filter(a => a.userLinked).reverse();
+    return linked.concat(ACCOUNTS.filter(a => !a.userLinked));
+}
+
 // Rows are redrawn on their own (not with the Transfer dropdowns) so changing
 // currency updates the converted amounts without resetting a dropdown selection.
 function renderAccountRows() {
-    document.getElementById('visible-accounts').innerHTML =
-        ACCOUNTS.slice(0, VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a)).join('');
+    const ordered = getAccountsInDisplayOrder();
+    document.getElementById('visible-accounts').innerHTML = ordered.length
+        ? ordered.slice(0, VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a)).join('')
+        : '<div style="font-size: 12px; color: #71717A; text-align: center; padding: 16px 0;">No accounts yet. Add one on the Connect tab.</div>';
     document.getElementById('extra-accounts').innerHTML =
-        ACCOUNTS.slice(VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a, 'margin-bottom: 0;')).join('');
+        ordered.slice(VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a, 'margin-bottom: 0;')).join('');
 }
 
 function renderAccounts() {
@@ -164,6 +173,7 @@ function renderAccountDetail() {
     document.getElementById('acct-balance').innerText = formatAccountBalanceIn(account, code);
     document.getElementById('acct-converted').innerText = code === account.currency ? '' : ('Native: ' + formatAccountBalance(account));
     renderAcctCurrencyMenu(account);
+    renderAcctActions(account);
 
     // Balance history for this account only, valued in the chosen currency
     const { points, clipped } = getAccountSeries(account, code, accountTimeframe);
@@ -181,4 +191,82 @@ function renderAccountDetail() {
     document.getElementById('acct-detail-type').innerText = account.type;
     document.getElementById('acct-detail-currency').innerText = account.currency + ' ' + CURRENCY_META[account.currency].flag;
     document.getElementById('acct-detail-share').innerText = share === null ? '—' : share.toFixed(1) + '%';
+}
+
+// --- Your own accounts: update balance, edit, remove ---
+// Only accounts the user added can be changed; the sample accounts are read-only.
+const ACCT_BTN_STYLE = 'flex: 1; border-radius: 12px; padding: 10px 0; font-size: 12px; font-weight: 700; ';
+
+function renderAcctActions(account) {
+    const el = document.getElementById('acct-actions');
+    if (!account.userLinked) {
+        el.innerHTML = '<div style="font-size: 11px; color: #71717A; text-align: center;">Sample account (read-only). Turn off "Show sample data" in Account settings to use only your own accounts.</div>';
+        return;
+    }
+    el.innerHTML =
+        '<button class="interactive-btn" onclick="openUpdateBalance()" style="' + ACCT_BTN_STYLE + 'background: #00FF85; color: #000; border: none;">Update balance</button>' +
+        '<button class="interactive-btn" onclick="openEditAccount()" style="' + ACCT_BTN_STYLE + 'background: #18181B; color: #fff; border: 1px solid #27272A;">Edit</button>' +
+        '<button class="interactive-btn" onclick="removeLinkedAccount(openAccountId)" style="' + ACCT_BTN_STYLE + 'background: #18181B; color: #FF4D6D; border: 1px solid #27272A;">Remove</button>';
+}
+
+// Shows a small form in the shared pop-up (the same box the Connect flow uses).
+function showAccountForm(title, fieldsHTML, saveCall) {
+    document.getElementById('modal-content-box').innerHTML =
+        '<h3 style="font-size: 16px; font-weight: 700; color: #fff;">' + title + '</h3>' +
+        fieldsHTML +
+        '<p id="acct-form-error" style="display: none; font-size: 11px; color: #FF4D6D; margin-top: -6px;"></p>' +
+        '<div style="display: flex; gap: 10px;">' +
+            '<button onclick="closeModalAndReset()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">Cancel</button>' +
+            '<button onclick="' + saveCall + '" style="flex: 1; background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer;">Save</button>' +
+        '</div>';
+    document.getElementById('secure-modal').style.display = 'flex';
+    const first = document.querySelector('#modal-content-box input');
+    if (first) first.focus();
+}
+
+function formInputHTML(id, label, value, type) {
+    return '<label style="display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 11px; color: #A1A1AA;">' + label +
+        '<input id="' + id + '" type="' + (type || 'text') + '"' + (type === 'number' ? ' inputmode="decimal" min="0" step="0.01"' : '') +
+        ' value="' + escapeHTML(value) + '" style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; outline: none;"></label>';
+}
+
+function showAccountFormError(message) {
+    const el = document.getElementById('acct-form-error');
+    el.innerText = message;
+    el.style.display = 'block';
+}
+
+function openUpdateBalance() {
+    const account = ACCOUNTS.find(a => a.id === openAccountId);
+    if (!account) return;
+    showAccountForm('Update balance',
+        '<p style="font-size: 12px; color: #A1A1AA; margin-top: -8px;">Today\'s balance of ' + escapeHTML(account.name) + ' in ' + account.currency + '. It\'s saved in the account\'s history.</p>' +
+        formInputHTML('acct-form-balance', 'Balance (' + account.currency + ')', account.balance, 'number'),
+        'saveUpdatedBalance()');
+}
+
+function saveUpdatedBalance() {
+    const raw = document.getElementById('acct-form-balance').value.trim();
+    const balance = Number(raw);
+    if (raw === '' || !isFinite(balance) || balance < 0) return showAccountFormError('Enter a balance of 0 or more.');
+    updateLinkedAccount(openAccountId, { balance: Math.round(balance * 100) / 100 });
+    closeModalAndReset();
+}
+
+function openEditAccount() {
+    const account = ACCOUNTS.find(a => a.id === openAccountId);
+    if (!account) return;
+    showAccountForm('Edit account',
+        formInputHTML('acct-form-name', 'Name', account.name) +
+        formInputHTML('acct-form-type', 'Type (e.g. Savings, Checking)', account.type) +
+        '<p style="font-size: 11px; color: #71717A; margin-top: -6px;">Currency can\'t be changed, because the history is stored in ' + account.currency + '. To change it, remove the account and add it again.</p>',
+        'saveEditedAccount()');
+}
+
+function saveEditedAccount() {
+    const name = document.getElementById('acct-form-name').value.trim();
+    const type = document.getElementById('acct-form-type').value.trim();
+    if (!name) return showAccountFormError('Enter a name.');
+    updateLinkedAccount(openAccountId, { name: name, type: type });
+    closeModalAndReset();
 }

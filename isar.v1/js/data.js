@@ -57,7 +57,9 @@ const USER = {
 };
 
 // Default preferences on the Account screen (saved changes are applied in storage.js).
-const USER_SETTINGS = { faceIdLock: true, notifications: true };
+// showSampleData: true shows the made-up demo accounts and history; false shows only
+// the user's own accounts ("start fresh").
+const USER_SETTINGS = { faceIdLock: true, notifications: true, showSampleData: true };
 
 // --- Portfolio valuation and currency conversion ---
 
@@ -67,6 +69,8 @@ const USER_SETTINGS = { faceIdLock: true, notifications: true };
 // currency menu are all generated from this array. `balance` is in the
 // account's own native currency. In production this would come from the
 // connected-account API.
+// The six accounts below are SAMPLE data (read-only). They're removed on start-up
+// when "Show sample data" is off (storage.js); the user's own accounts are added after them.
 const ACCOUNTS = [
     { id: 'westpac', name: 'Westpac (AUS)',       type: 'Checking',            letter: 'W', color: '#DA1710', balance: 35120, currency: 'AUD' },
     { id: 'bbva',    name: 'BBVA (ESP)',          type: 'Savings',             letter: 'B', color: '#004481', balance: 42800, currency: 'EUR' },
@@ -82,16 +86,49 @@ const VISIBLE_ACCOUNT_COUNT = 4;
 // All exchange rates are stored as "1 AUD = X of this currency". This makes
 // every account comparable: native balance -> AUD -> selected display currency.
 const BASE_CURRENCY = 'AUD';
-const EXCHANGE_RATES = {
-    AUD: 1,
-    USD: 0.658,
-    GBP: 0.514,
-    EUR: 0.602
-};
 
-const CURRENCY_META = {
-    AUD: { symbol: '$', flag: '🇦🇺' },
-    USD: { symbol: '$', flag: '🇺🇸' },
-    GBP: { symbol: '£', flag: '🇬🇧' },
-    EUR: { symbol: '€', flag: '🇪🇺' }
-};
+// Every currency the app supports: the ones the European Central Bank publishes a daily
+// reference rate for (via Frankfurter, see rates.js). Order = order in every picker.
+// `fallback` is the ECB rate from 30 Oct 2026 ("1 AUD = X"), used only until live rates load
+// (or if they can't load). Live rates replace them within a second or two of opening.
+// To add a currency: add a line here; it must be one the ECB publishes.
+const CURRENCIES = [
+    { code: 'AUD', name: 'Australian Dollar',  symbol: '$',   flag: '🇦🇺', fallback: 1 },
+    { code: 'USD', name: 'US Dollar',          symbol: '$',   flag: '🇺🇸', fallback: 0.70246 },
+    { code: 'EUR', name: 'Euro',               symbol: '€',   flag: '🇪🇺', fallback: 0.62877 },
+    { code: 'GBP', name: 'British Pound',      symbol: '£',   flag: '🇬🇧', fallback: 0.52427 },
+    { code: 'JPY', name: 'Japanese Yen',       symbol: '¥',   flag: '🇯🇵', fallback: 110.46 },
+    { code: 'CAD', name: 'Canadian Dollar',    symbol: '$',   flag: '🇨🇦', fallback: 0.98126 },
+    { code: 'NZD', name: 'New Zealand Dollar', symbol: '$',   flag: '🇳🇿', fallback: 1.2464 },
+    { code: 'CHF', name: 'Swiss Franc',        symbol: 'Fr ', flag: '🇨🇭', fallback: 0.57809 },
+    { code: 'SGD', name: 'Singapore Dollar',   symbol: '$',   flag: '🇸🇬', fallback: 0.89801 },
+    { code: 'HKD', name: 'Hong Kong Dollar',   symbol: '$',   flag: '🇭🇰', fallback: 5.5113 },
+    { code: 'CNY', name: 'Chinese Yuan',       symbol: '¥',   flag: '🇨🇳', fallback: 4.6734 },
+    { code: 'INR', name: 'Indian Rupee',       symbol: '₹',   flag: '🇮🇳', fallback: 66.7 },
+    { code: 'KRW', name: 'South Korean Won',   symbol: '₩',   flag: '🇰🇷', fallback: 937.98 },
+    { code: 'IDR', name: 'Indonesian Rupiah',  symbol: 'Rp',  flag: '🇮🇩', fallback: 12748 },
+    { code: 'MYR', name: 'Malaysian Ringgit',  symbol: 'RM',  flag: '🇲🇾', fallback: 2.8499 },
+    { code: 'PHP', name: 'Philippine Peso',    symbol: '₱',   flag: '🇵🇭', fallback: 44.733 },
+    { code: 'THB', name: 'Thai Baht',          symbol: '฿',   flag: '🇹🇭', fallback: 23.694 },
+    { code: 'SEK', name: 'Swedish Krona',      symbol: 'kr ', flag: '🇸🇪', fallback: 6.9027 },
+    { code: 'NOK', name: 'Norwegian Krone',    symbol: 'kr ', flag: '🇳🇴', fallback: 6.4839 },
+    { code: 'DKK', name: 'Danish Krone',       symbol: 'kr ', flag: '🇩🇰', fallback: 4.6991 },
+    { code: 'ISK', name: 'Icelandic Króna',    symbol: 'kr ', flag: '🇮🇸', fallback: 85.51 },
+    { code: 'PLN', name: 'Polish Złoty',       symbol: 'zł ', flag: '🇵🇱', fallback: 2.769 },
+    { code: 'CZK', name: 'Czech Koruna',       symbol: 'Kč ', flag: '🇨🇿', fallback: 15.3125 },
+    { code: 'HUF', name: 'Hungarian Forint',   symbol: 'Ft ', flag: '🇭🇺', fallback: 230.34 },
+    { code: 'RON', name: 'Romanian Leu',       symbol: 'lei ', flag: '🇷🇴', fallback: 3.3606 },
+    { code: 'TRY', name: 'Turkish Lira',       symbol: '₺',   flag: '🇹🇷', fallback: 35.087 },
+    { code: 'ILS', name: 'Israeli Shekel',     symbol: '₪',   flag: '🇮🇱', fallback: 2.1976 },
+    { code: 'ZAR', name: 'South African Rand', symbol: 'R ',  flag: '🇿🇦', fallback: 11.7238 },
+    { code: 'MXN', name: 'Mexican Peso',       symbol: '$',   flag: '🇲🇽', fallback: 13.2822 },
+    { code: 'BRL', name: 'Brazilian Real',     symbol: 'R$',  flag: '🇧🇷', fallback: 3.8161 }
+];
+
+// Built from CURRENCIES so the rest of the app can look things up by code.
+const EXCHANGE_RATES = {};
+const CURRENCY_META = {};
+CURRENCIES.forEach(c => {
+    EXCHANGE_RATES[c.code] = c.fallback;
+    CURRENCY_META[c.code] = { symbol: c.symbol, flag: c.flag, name: c.name };
+});

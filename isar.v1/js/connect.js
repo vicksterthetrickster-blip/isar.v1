@@ -125,9 +125,42 @@ function saveLinkedAccounts() {
     SAVED.linkedAccounts = ACCOUNTS.filter(a => a.userLinked).map(a => ({
         id: a.id, bankName: a.bankName, name: a.name, type: a.type,
         letter: a.letter, color: a.color, balance: a.balance, currency: a.currency,
-        addedDate: a.addedDate, history: a.history
+        addedDate: a.addedDate, history: a.history, historySource: a.historySource
     }));
     saveData();
+}
+
+// Where a new account's past comes from. With sample data on, it gets made-up history
+// ('mock'); with your own data, history starts on the day you add it ('manual').
+// A real bank provider would supply real history here instead.
+function startingHistory(balance, addedDate) {
+    return USER_SETTINGS.showSampleData
+        ? { history: generateMockAccountHistory(balance, addedDate), historySource: 'mock' }
+        : { history: [{ date: addedDate, balance: balance }], historySource: 'manual' };
+}
+
+// Applies changes to one of the user's accounts. `changes` can hold any of:
+// balance (a new balance, recorded in the account's history for today), name, type.
+// Sample accounts are read-only, so they're ignored.
+function updateLinkedAccount(id, changes) {
+    const account = ACCOUNTS.find(a => a.id === id && a.userLinked);
+    if (!account) return;
+    if (typeof changes.name === 'string' && changes.name.trim()) {
+        account.name = changes.name.trim();
+        account.letter = Array.from(account.name)[0].toUpperCase();
+    }
+    if (typeof changes.type === 'string' && changes.type.trim()) account.type = changes.type.trim();
+    if (typeof changes.balance === 'number' && isFinite(changes.balance)) {
+        account.balance = changes.balance;
+        const today = localISODate(new Date());
+        const history = account.history;
+        const last = history[history.length - 1];
+        if (last && last.date === today) last.balance = changes.balance;
+        else history.push({ date: today, balance: changes.balance });
+    }
+    saveLinkedAccounts();
+    refreshAfterAccountChange();
+    if (openAccountId === id) renderAccountDetail();
 }
 
 // ===== MOCK DATA: replaced by the bank provider later =====
@@ -159,9 +192,10 @@ function upgradeLinkedAccounts() {
             changed = true;
         }
         if (!Array.isArray(a.history)) {
-            a.history = generateMockAccountHistory(a.balance, a.addedDate);
+            Object.assign(a, startingHistory(a.balance, a.addedDate));
             changed = true;
         }
+        if (!a.historySource) { a.historySource = 'mock'; changed = true; }   // banks linked before this existed got mock history
     });
     if (changed) saveLinkedAccounts();
 }
@@ -179,9 +213,9 @@ function addLinkedAccount(bankName, balance, currency) {
         balance: balance,
         currency: currency,
         addedDate: addedDate,
-        history: generateMockAccountHistory(balance, addedDate),
         userLinked: true
     });
+    Object.assign(ACCOUNTS[ACCOUNTS.length - 1], startingHistory(balance, addedDate));
     saveLinkedAccounts();
     refreshAfterAccountChange();
 }
@@ -247,7 +281,7 @@ function startSecureConnect() {
     // Simulated authorization. Until a real open-banking provider is connected,
     // the user enters the balance and currency themselves.
     setTimeout(() => {
-        const currencyOptions = Object.keys(CURRENCY_META).map(c => '<option value="' + c + '"' + (c === activeCurrency ? ' selected' : '') + '>' + CURRENCY_META[c].flag + ' ' + c + '</option>').join('');
+        const currencyOptions = currencyOptionsHTML(activeCurrency);
         modalBox.innerHTML = `
             <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(0,255,133,0.15); color: #00FF85; font-size: 22px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">✓</div>
             <div>
