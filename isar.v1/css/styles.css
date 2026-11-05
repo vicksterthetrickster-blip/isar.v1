@@ -37,7 +37,7 @@
         body { background: #050507; min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #fff; }
         .phone-frame { width: 390px; height: 844px; background: #09090B; border-radius: 44px; border: 4px solid #27272A; overflow: hidden; display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); }
         .header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1E1E24; background: #09090B; z-index: 10; }
-        .content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 96px; scrollbar-width: none; }
+        .content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 16px; padding-bottom: calc(68px + var(--nav-bottom-pad)); scrollbar-width: none; }
         .content::-webkit-scrollbar { display: none; }
         /* Sections keep their full height, so the page scrolls. Without this, the column squeezed
            every section to fit the screen: nothing could scroll and the last account got clipped. */
@@ -52,14 +52,17 @@
         input, textarea, select { -webkit-user-select: text; user-select: text; }
         .card[onclick]:active { transform: scale(0.98); }       /* tappable cards give press feedback */
         .card { background: #121216; border: 1px solid #1E1E24; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px; position: relative; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-        /* Tab bar: a floating frosted-glass pill with icon-only buttons */
-        /* Compact and centred (left/right 0 + margin auto + fit-content), not stretched edge to edge */
-        .nav-bar { position: absolute; left: 0; right: 0; margin: 0 auto; width: fit-content; gap: 6px;
-                   bottom: 14px; height: 60px; padding: 0 8px; border-radius: 30px;
-                   background: rgba(24, 24, 27, 0.72); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
-                   border: 1px solid rgba(255, 255, 255, 0.07); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-                   display: flex; align-items: center; z-index: 20; }
-        .nav-btn { width: 56px; height: 44px; border-radius: 22px; background: transparent; border: none; padding: 0; cursor: pointer;
+        /* Tab bar: docked to the bottom edge, full width, frosted glass (like iOS).
+           The icons sit together in the middle with fixed spacing (justify-content: center + gap)
+           instead of being spread across the whole width.
+           Its height = 8px top padding + 44px buttons + bottom padding (--nav-bottom-pad). */
+        :root { --nav-bottom-pad: 14px; }
+        .nav-bar { position: absolute; left: 0; right: 0; bottom: 0;
+                   padding: 8px 16px var(--nav-bottom-pad); gap: 12px;
+                   background: rgba(9, 9, 11, 0.82); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+                   border-top: 1px solid rgba(255, 255, 255, 0.07);
+                   display: flex; justify-content: center; align-items: center; z-index: 20; }
+        .nav-btn { width: 60px; height: 44px; border-radius: 14px; background: transparent; border: none; padding: 0; cursor: pointer;
                    display: flex; align-items: center; justify-content: center; color: #71717A; -webkit-tap-highlight-color: transparent;
                    transition: color 0.2s ease, background 0.25s ease, transform 0.12s cubic-bezier(0.16, 1, 0.3, 1); }
         .nav-btn svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -124,10 +127,11 @@
                 border: none; border-radius: 0; box-shadow: none;
             }
             .header { flex-shrink: 0; padding-top: calc(12px + env(safe-area-inset-top)); }
-            /* Sits just above the home bar. The home-bar area (safe-area-inset-bottom, ~34px) has
-               empty space under the line itself, so the bar can overlap the top of it a little. */
-            .nav-bar { bottom: max(10px, calc(env(safe-area-inset-bottom) - 10px)); }
-            .content { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+            /* The tab bar's background runs to the very bottom of the screen; only its padding changes.
+               The home-bar area (safe-area-inset-bottom) is ~34px, but the home-bar LINE only uses the
+               bottom ~13px of it. So the icons may sit 14px lower than that area's top edge without
+               ever touching the line. (The .content padding above follows automatically.) */
+            :root { --nav-bottom-pad: max(14px, calc(env(safe-area-inset-bottom) - 14px)); }
             /* iPhone zooms into any text box under 16px when you tap it; 16px stops that */
             input, select { font-size: 16px !important; }
         }
