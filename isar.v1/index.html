@@ -368,13 +368,14 @@
                     <div id="acct-graph-note" style="font-size: 11px; color: #71717A;"></div>
                 </div>
 
-                <!-- Money in and out of this account (transactions.js) -->
+                <!-- This account's transactions (transactions.js) -->
                 <div class="card" style="padding: 16px; gap: 10px;">
-                    <div id="acct-tx-title" style="font-size: 13px; font-weight: 700; color: #fff;">Money in &amp; out</div>
+                    <div id="acct-tx-title" style="font-size: 13px; font-weight: 700; color: #fff;">Transactions</div>
                     <div class="tx-summary">
                         <div><small>In, last 30 days</small><strong id="acct-tx-in" style="color: #00FF85;"></strong></div>
                         <div><small>Out, last 30 days</small><strong id="acct-tx-out"></strong></div>
                     </div>
+                    <div id="acct-tx-hidden" class="tx-hidden" hidden><span>Hidden exchange costs, last 30 days</span><strong id="acct-tx-hidden-value"></strong></div>
                     <div id="acct-tx-filters" style="display: flex; gap: 6px;"></div>
                     <div id="acct-tx-list"></div>
                     <button id="acct-tx-more" class="tx-more interactive-btn" onclick="showMoreAcctTx()" hidden>Show more</button>

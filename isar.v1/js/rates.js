@@ -165,6 +165,51 @@ async function fetchLiveRates(manual) {
     if (manual && succeeded) playRefreshAnimations();
 }
 
+// --- Past exchange rates, one set per working day (saved on this device) ---
+// Used to work out what a foreign transaction SHOULD have cost on the day it happened.
+const RATE_HISTORY_KEY = 'isar.rateHistory.v1';
+const RATE_HISTORY_DAYS = 92;
+const rateHistory = loadRateHistory();                  // date -> { USD: 0.7, EUR: 0.6, ... }, 1 AUD = X
+let rateHistoryDates = Object.keys(rateHistory).sort(); // the dates above, oldest first
+
+function loadRateHistory() {
+    try { return JSON.parse(localStorage.getItem(RATE_HISTORY_KEY)) || {}; } catch (e) { return {}; }
+}
+
+// Downloads whichever days are missing, then redraws any open transaction list.
+async function refreshRateHistory() {
+    const start = new Date();
+    start.setDate(start.getDate() - RATE_HISTORY_DAYS);
+    const from = rateHistoryDates[rateHistoryDates.length - 1] || localISODate(start);
+    const today = localISODate(new Date());
+    if (from >= today) return;
+    try {
+        const response = await fetch('https://api.frankfurter.dev/v1/' + from + '..' + today + '?base=' + BASE_CURRENCY);
+        if (!response.ok) throw new Error('Rate history request failed: ' + response.status);
+        const data = await response.json();
+        Object.assign(rateHistory, data.rates);
+        rateHistoryDates = Object.keys(rateHistory).sort();
+        try { localStorage.setItem(RATE_HISTORY_KEY, JSON.stringify(rateHistory)); } catch (e) {}
+        refreshAccountTransactions();
+    } catch (err) {
+        console.warn('Could not load past exchange rates.', err);
+    }
+}
+
+// The rate from one currency to another on a date: 1 `from` = rate `to`. Weekends and holidays
+// use the last working day (the ECB doesn't publish then). Null if we don't have that date.
+function getRateOnDate(date, from, to) {
+    let rateDate = null;
+    for (const d of rateHistoryDates) {
+        if (d > date) break;
+        rateDate = d;
+    }
+    if (!rateDate) return null;
+    const rates = Object.assign({ [BASE_CURRENCY]: 1 }, rateHistory[rateDate]);
+    if (!rates[from] || !rates[to]) return null;
+    return { rate: rates[to] / rates[from], rateDate: rateDate };
+}
+
 function formatMoney(value) {
     return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

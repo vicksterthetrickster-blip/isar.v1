@@ -33,6 +33,7 @@ function startApp() {
     initDismissMenus();
     initScreenTransitions();
     initSwipeBack();
+    refreshRateHistory();
     // The daily summary waits for live rates, so it compares real numbers.
     fetchLiveRates(false).then(() => { if (!needsSetup()) showDailySummary(); });
     // Keep an open dashboard current without relying on a page reload.

@@ -1,8 +1,10 @@
-// transactions.js — money in and out of an account, shown under its balance graph.
+// transactions.js — an account's transactions, shown under its balance graph.
 //
-// One transaction: { id, date: 'YYYY-MM-DD', description, category, amount, opening }
+// One transaction: { id, date: 'YYYY-MM-DD', description, category, amount, opening, original }
 //   amount is in the account's own currency: positive = money in, negative = money out
 //   opening: true marks a starting balance, which isn't counted as money in
+//   original: { amount, currency } only on a foreign transaction: what was actually spent, e.g.
+//             EUR 100. `amount` is then what the bank charged for it, in the account's currency.
 //
 // getAccountTransactions() is the ONLY place that decides where the list comes from:
 //   1. account.transactions: real data. A bank connection (TrueLayer, Plaid, Basiq...) fills
@@ -83,7 +85,36 @@ const MOCK_TRANSACTION_RULES = {
         { description: 'Sell: SOL', category: 'Crypto', min: 80, max: 350, in: true, chance: 0.03 }
     ]
 };
-const mockTransactionCache = {};        // account id + balance -> generated list
+// Foreign spending (everyday accounts only). The amounts are real conversions: each one is
+// priced at that day's real rate, plus a markup like a bank's (see mockFxMarkup).
+const MOCK_FOREIGN_SPENDS = [
+    { description: 'Hotel, Lisbon', category: 'Travel', currency: 'EUR', min: 120, max: 260 },
+    { description: 'Restaurant, Paris', category: 'Eating out', currency: 'EUR', min: 40, max: 110 },
+    { description: 'Amazon US', category: 'Shopping', currency: 'USD', min: 30, max: 160 },
+    { description: 'Uber, London', category: 'Transport', currency: 'GBP', min: 12, max: 40 },
+    { description: 'Train, Tokyo', category: 'Travel', currency: 'JPY', min: 20, max: 70 }
+];
+const MOCK_FOREIGN_CHANCE = 0.09;       // per day
+
+// Multi-currency accounts convert close to the real rate; ordinary bank cards charge about 3%.
+function mockFxMarkup(account, random) {
+    const multiCurrency = account.type === 'Multi-Currency' || account.type === 'Business Account';
+    return multiCurrency ? 0.003 + random * 0.003 : 0.025 + random * 0.01;
+}
+
+function mockForeignTransaction(account, date, size) {
+    const random = seededRandom('fx' + account.id + date);
+    if (random() > MOCK_FOREIGN_CHANCE) return null;
+    const spend = MOCK_FOREIGN_SPENDS[Math.floor(random() * MOCK_FOREIGN_SPENDS.length)];
+    const toSpend = getRateOnDate(date, BASE_CURRENCY, spend.currency);
+    const toAccount = getRateOnDate(date, spend.currency, account.currency);
+    if (spend.currency === account.currency || !toSpend || !toAccount) return null;
+    const original = Math.round((spend.min + random() * (spend.max - spend.min)) * size * toSpend.rate * 100) / 100;
+    const charged = Math.round(original * toAccount.rate * (1 + mockFxMarkup(account, random())) * 100) / 100;
+    return { id: account.id + '-' + date + '-fx', date: date, description: spend.description, category: spend.category, amount: -charged, original: { amount: -original, currency: spend.currency } };
+}
+
+const mockTransactionCache = {};        // account id + balance + rate days -> generated list
 
 function mockRulesFor(account) {
     const bank = topBanks.find(b => b.name === account.bankName);
@@ -106,7 +137,7 @@ function seededRandom(text) {
 }
 
 function generateMockTransactions(account) {
-    const cacheKey = account.id + ':' + account.balance;
+    const cacheKey = account.id + ':' + account.balance + ':' + rateHistoryDates.length;
     if (mockTransactionCache[cacheKey]) return mockTransactionCache[cacheKey];
 
     const fallbackRate = CURRENCIES.find(c => c.code === account.currency).fallback;   // stays fixed, so amounts don't shift with live rates
@@ -125,14 +156,43 @@ function generateMockTransactions(account) {
             const amount = Math.round((rule.min + spread * (rule.max - rule.min)) * size * fallbackRate * 100) / 100;
             list.push({ id: account.id + '-' + date + '-' + i, date: date, description: rule.description, category: rule.category, amount: rule.in ? amount : -amount });
         });
+        const foreign = rules === MOCK_TRANSACTION_RULES.everyday ? mockForeignTransaction(account, date, size) : null;
+        if (foreign) list.push(foreign);
     }
     mockTransactionCache[cacheKey] = list;
     return list;
 }
 
-// --- The "Money in & out" card on the account screen ---
+// --- The hidden cost of a foreign transaction ---
+// A bank can say "no fee" and still charge one, by giving you a worse exchange rate. This
+// compares what you were charged with what the same amount cost at the real rate that day.
+// Differences under FX_TOLERANCE_PCT are normal: rates move during the day, and the ECB
+// publishes just one rate, so the result is always an estimate.
+const FX_TOLERANCE_PCT = 0.3;
+
+function getFxCost(transaction, account) {
+    const original = transaction.original;
+    if (!original || original.currency === account.currency) return null;
+    const real = getRateOnDate(transaction.date, original.currency, account.currency);
+    if (!real) return { unknown: true };
+    const charged = Math.abs(transaction.amount), spent = Math.abs(original.amount);
+    const fair = spent * real.rate;
+    const cost = transaction.amount < 0 ? charged - fair : fair - charged;      // on a refund, getting less is the cost
+    const pct = cost / fair * 100;
+    return { realRate: real.rate, rateDate: real.rateDate, bankRate: charged / spent, fair: fair, cost: cost, pct: pct, significant: pct >= FX_TOLERANCE_PCT };
+}
+
+// --- The Transactions card on the account screen ---
 function formatTransactionAmount(amount, currency) {
     return (amount >= 0 ? '+' : '−') + CURRENCY_META[currency].symbol + formatMoney(Math.abs(amount));
+}
+
+function formatRate(rate) {
+    return Number(rate.toPrecision(5)).toLocaleString('en-US', { maximumFractionDigits: 8 });
+}
+
+function formatOriginalAmount(original) {
+    return CURRENCY_META[original.currency].symbol + formatMoney(Math.abs(original.amount)) + ' ' + original.currency;
 }
 
 function transactionDayLabel(date) {
@@ -155,9 +215,14 @@ function renderAccountTransactions(account) {
     const moneyIn = recent.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
     const moneyOut = recent.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0);
     const symbol = CURRENCY_META[account.currency].symbol;
-    document.getElementById('acct-tx-title').innerText = 'Money in & out · ' + account.currency;
+    document.getElementById('acct-tx-title').innerText = 'Transactions · ' + account.currency;
     document.getElementById('acct-tx-in').innerText = symbol + formatMoney(moneyIn);
     document.getElementById('acct-tx-out').innerText = symbol + formatMoney(Math.abs(moneyOut));
+
+    // Total hidden exchange cost over the same 30 days
+    const hidden = recent.map(t => getFxCost(t, account)).filter(c => c && c.significant).reduce((sum, c) => sum + c.cost, 0);
+    document.getElementById('acct-tx-hidden').hidden = !hidden;
+    document.getElementById('acct-tx-hidden-value').innerText = '≈ ' + symbol + formatMoney(hidden);
 
     document.getElementById('acct-tx-filters').innerHTML = TX_FILTERS.map(pair => {
         const active = pair[0] === acctTxFilter;
@@ -172,10 +237,11 @@ function renderAccountTransactions(account) {
         lastDate = t.date;
         const moneyInRow = t.amount >= 0;
         return heading +
-            '<div class="tx-row">' +
+            '<div class="tx-row" data-id="' + escapeHTML(t.id) + '" onclick="openTransaction(this.dataset.id)">' +
                 '<span class="tx-icon ' + (moneyInRow ? 'in' : 'out') + '">' + (moneyInRow ? '↓' : '↑') + '</span>' +
-                '<span class="tx-name">' + escapeHTML(t.description) + '<small>' + escapeHTML(t.category || '') + '</small></span>' +
+                '<span class="tx-name">' + escapeHTML(t.description) + '<small>' + escapeHTML(t.category || '') + (t.original ? ' · ' + formatOriginalAmount(t.original) : '') + '</small></span>' +
                 '<span class="tx-amount' + (moneyInRow ? ' in' : '') + '">' + formatTransactionAmount(t.amount, account.currency) + '</span>' +
+                '<span class="tx-chevron">›</span>' +
             '</div>';
     }).join('') || '<div class="tx-empty">Nothing here yet</div>';
 
@@ -183,6 +249,54 @@ function renderAccountTransactions(account) {
     document.getElementById('acct-tx-note').innerText = Array.isArray(account.transactions) ? ''
         : usesMockTransactions(account) ? 'Sample transactions for the demo.'
         : 'These are the balance updates you\'ve entered. Individual transactions will appear here once this bank is connected.';
+}
+
+// --- One transaction, opened by tapping it ---
+function infoRowHTML(label, value) {
+    return '<div class="settings-row" style="cursor: default;"><span class="row-label">' + label + '</span><span class="row-value" style="text-align: right;">' + escapeHTML(value) + '</span></div>';
+}
+
+function fxCostHTML(transaction, account) {
+    const fx = getFxCost(transaction, account);
+    if (!fx) return '';
+    const symbol = CURRENCY_META[account.currency].symbol;
+    const from = transaction.original.currency, to = account.currency;
+    const spent = formatOriginalAmount(transaction.original);
+    if (fx.unknown) return '<p class="info-note">We don\'t have the exchange rate for this date yet, so the hidden cost can\'t be worked out.</p>';
+
+    return '<div><div class="section-label">Foreign currency</div><div class="settings-group">' +
+            infoRowHTML('Spent', spent) +
+            infoRowHTML('Your bank\'s rate', '1 ' + from + ' = ' + formatRate(fx.bankRate) + ' ' + to) +
+            infoRowHTML('Real rate', '1 ' + from + ' = ' + formatRate(fx.realRate) + ' ' + to) +
+        '</div></div>' +
+        '<div class="fx-card' + (fx.significant ? '' : ' fair') + '">' +
+            '<small>' + (fx.significant ? 'Hidden exchange cost' : 'Hidden exchange cost: none found') + '</small>' +
+            (fx.significant ? '<strong>≈ ' + symbol + formatMoney(fx.cost) + '</strong><span>' + fx.pct.toFixed(1) + '% worse than the real rate, even if your bank calls it fee-free.</span>' : '<span>Your bank\'s rate was about the same as the real rate.</span>') +
+            '<p>' + spent + ' at the real rate is ' + symbol + formatMoney(fx.fair) + '. Your bank charged ' + symbol + formatMoney(Math.abs(transaction.amount)) + '.</p>' +
+        '</div>' +
+        '<p class="info-note">An estimate. The real rate is the European Central Bank\'s rate for ' + formatRateDate(fx.rateDate) + ', and rates move during the day.</p>';
+}
+
+function openTransaction(id) {
+    const account = ACCOUNTS.find(a => a.id === openAccountId);
+    const transaction = account && getAccountTransactions(account).find(t => t.id === id);
+    if (!transaction) return;
+    const moneyIn = transaction.amount >= 0;
+    const [year] = transaction.date.split('-');
+    openInfoScreen('Transaction',
+        '<div class="tx-hero">' +
+            '<span class="tx-icon ' + (moneyIn ? 'in' : 'out') + '">' + (moneyIn ? '↓' : '↑') + '</span>' +
+            '<strong class="' + (moneyIn ? 'in' : '') + '">' + formatTransactionAmount(transaction.amount, account.currency) + '</strong>' +
+            '<span>' + escapeHTML(transaction.description) + '</span>' +
+        '</div>' +
+        '<div class="settings-group">' +
+            infoRowHTML('Date', formatRateDate(transaction.date) + ' ' + year) +
+            infoRowHTML('Type', transaction.opening ? 'Starting balance' : moneyIn ? 'Money in' : 'Money out') +
+            (transaction.category ? infoRowHTML('Category', transaction.category) : '') +
+            infoRowHTML('Account', account.name) +
+        '</div>' +
+        fxCostHTML(transaction, account) +
+        (usesMockTransactions(account) ? '<p class="info-note">Sample transaction for the demo.</p>' : ''));
 }
 
 function refreshAccountTransactions() {

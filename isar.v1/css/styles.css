@@ -258,7 +258,22 @@
         .tx-filter { flex: 1; padding: 8px 0; border-radius: 9px; font-size: 13px; font-weight: 600; border: 1px solid #27272A; background: #18181B; color: #fff; }
         .tx-filter.active { border-color: #00FF85; background: #27272A; color: #00FF85; font-weight: 700; }
         .tx-day { font-size: 12px; font-weight: 600; color: #71717A; padding: 12px 0 4px; }
-        .tx-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+        .tx-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; cursor: pointer; border-radius: 10px; transition: background 0.1s; }
+        .tx-row:active { background: #18181B; }
+        .tx-chevron { font-size: 16px; color: #71717A; flex-shrink: 0; }
+        .tx-hidden { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: rgba(255, 77, 109, 0.09); border-radius: 12px; padding: 10px 12px; font-size: 13px; color: #A1A1AA; }
+        .tx-hidden strong { color: #FF4D6D; font-size: 14px; white-space: nowrap; }
+        .tx-hero { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0 4px; text-align: center; }
+        .tx-hero .tx-icon { width: 52px; height: 52px; font-size: 22px; }
+        .tx-hero strong { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
+        .tx-hero strong.in { color: #00FF85; }
+        .tx-hero span:last-child { font-size: 15px; color: #A1A1AA; }
+        .fx-card { display: flex; flex-direction: column; gap: 4px; background: rgba(255, 77, 109, 0.09); border: 1px solid rgba(255, 77, 109, 0.3); border-radius: 16px; padding: 16px; }
+        .fx-card.fair { background: rgba(0, 255, 133, 0.07); border-color: rgba(0, 255, 133, 0.3); }
+        .fx-card small { font-size: 13px; font-weight: 600; color: #A1A1AA; }
+        .fx-card strong { font-size: 28px; font-weight: 800; color: #FF4D6D; letter-spacing: -0.5px; }
+        .fx-card span { font-size: 14px; color: #fff; line-height: 1.4; }
+        .fx-card p { font-size: 13px; color: #A1A1AA; line-height: 1.45; margin-top: 6px; }
         .tx-icon { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; }
         .tx-icon.in { background: rgba(0, 255, 133, 0.12); color: #00FF85; }
         .tx-icon.out { background: #1E1E24; color: #A1A1AA; }
