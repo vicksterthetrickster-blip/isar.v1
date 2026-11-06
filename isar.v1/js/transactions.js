@@ -1,6 +1,7 @@
 // transactions.js — an account's transactions, shown under its balance graph.
 //
-// One transaction: { id, date: 'YYYY-MM-DD', description, category, amount, opening, original }
+// One transaction: { id, date: 'YYYY-MM-DD', time, description, category, amount, opening, original }
+//   time is 'HH:MM' on the device's clock. It's optional: some banks only give the date.
 //   amount is in the account's own currency: positive = money in, negative = money out
 //   opening: true marks a starting balance, which isn't counted as money in
 //   original: { amount, currency } only on a foreign transaction: what was actually spent, e.g.
@@ -18,9 +19,29 @@ const TX_PAGE_SIZE = 15;                // rows shown before "Show more"
 const TX_FILTERS = [['all', 'All'], ['in', 'Money in'], ['out', 'Money out']];
 
 function getAccountTransactions(account) {
-    if (Array.isArray(account.transactions)) return account.transactions;
-    if (usesMockTransactions(account)) return generateMockTransactions(account);
-    return balanceUpdateEntries(account);
+    const list = Array.isArray(account.transactions) ? account.transactions
+        : usesMockTransactions(account) ? generateMockTransactions(account)
+        : balanceUpdateEntries(account);
+    return list.slice().sort((a, b) => (b.date + (b.time || '')).localeCompare(a.date + (a.time || '')));   // newest first
+}
+
+function currentTimeHHMM() {
+    const now = new Date();
+    return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+}
+
+// "14:05" -> "2:05 PM"
+function formatTransactionTime(time) {
+    const [hours, minutes] = time.split(':').map(Number);
+    return (hours % 12 || 12) + ':' + String(minutes).padStart(2, '0') + (hours < 12 ? ' AM' : ' PM');
+}
+
+// An amount from an account's own currency in the currency it's being viewed in, at THAT
+// day's rate (like the balance graph). Falls back to today's rate if we don't have that day.
+function convertTransactionAmount(amount, account, code, date) {
+    if (code === account.currency) return amount;
+    const past = getRateOnDate(date, account.currency, code);
+    return amount * (past ? past.rate : EXCHANGE_RATES[code] / EXCHANGE_RATES[account.currency]);
 }
 
 function usesMockTransactions(account) {
@@ -36,6 +57,7 @@ function balanceUpdateEntries(account) {
         return {
             id: account.id + '-' + point.date,
             date: point.date,
+            time: point.time,
             description: i === 0 ? 'Starting balance' : 'Balance updated',
             category: i === 0 ? 'Account added' : 'Entered by you',
             amount: change,
@@ -114,7 +136,14 @@ function mockForeignTransaction(account, date, size) {
     return { id: account.id + '-' + date + '-fx', date: date, description: spend.description, category: spend.category, amount: -charged, original: { amount: -original, currency: spend.currency } };
 }
 
-const mockTransactionCache = {};        // account id + balance + rate days -> generated list
+// A time of day for a sample transaction (7:00 AM to 9:59 PM). Worked out from its id, so it
+// never changes, and separately from the amounts.
+function mockTransactionTime(id) {
+    const random = seededRandom('time' + id);
+    return String(7 + Math.floor(random() * 15)).padStart(2, '0') + ':' + String(Math.floor(random() * 60)).padStart(2, '0');
+}
+
+const mockTransactionCache = {};        // account id + balance + rate days + hour -> generated list
 
 function mockRulesFor(account) {
     const bank = topBanks.find(b => b.name === account.bankName);
@@ -137,7 +166,7 @@ function seededRandom(text) {
 }
 
 function generateMockTransactions(account) {
-    const cacheKey = account.id + ':' + account.balance + ':' + rateHistoryDates.length;
+    const cacheKey = [account.id, account.balance, rateHistoryDates.length, new Date().getHours()].join(':');
     if (mockTransactionCache[cacheKey]) return mockTransactionCache[cacheKey];
 
     const fallbackRate = CURRENCIES.find(c => c.code === account.currency).fallback;   // stays fixed, so amounts don't shift with live rates
@@ -159,8 +188,13 @@ function generateMockTransactions(account) {
         const foreign = rules === MOCK_TRANSACTION_RULES.everyday ? mockForeignTransaction(account, date, size) : null;
         if (foreign) list.push(foreign);
     }
-    mockTransactionCache[cacheKey] = list;
-    return list;
+    // Today's sample transactions only appear once their time has passed
+    const today = localISODate(new Date()), now = currentTimeHHMM();
+    const timed = list
+        .map(t => Object.assign(t, { time: mockTransactionTime(t.id) }))
+        .filter(t => t.date !== today || t.time <= now);
+    mockTransactionCache[cacheKey] = timed;
+    return timed;
 }
 
 // --- The hidden cost of a foreign transaction ---
@@ -208,19 +242,29 @@ function renderAccountTransactions(account) {
     const all = getAccountTransactions(account);
     const counted = all.filter(t => !t.opening);
 
-    // Totals for the last 30 days, in the account's own currency
+    // Everything on this card follows the currency chosen at the top of the account screen.
+    // Each amount is converted at its own day's rate; the real charges are never changed.
+    const code = acctViewCurrency || account.currency;
+    const converted = code !== account.currency;
+    const inView = t => convertTransactionAmount(t.amount, account, code, t.date);
+
+    // Totals for the last 30 days
     const since = new Date();
     since.setDate(since.getDate() - TX_SUMMARY_DAYS);
     const recent = counted.filter(t => t.date >= localISODate(since));
-    const moneyIn = recent.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-    const moneyOut = recent.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0);
-    const symbol = CURRENCY_META[account.currency].symbol;
-    document.getElementById('acct-tx-title').innerText = 'Transactions · ' + account.currency;
-    document.getElementById('acct-tx-in').innerText = symbol + formatMoney(moneyIn);
-    document.getElementById('acct-tx-out').innerText = symbol + formatMoney(Math.abs(moneyOut));
+    const moneyIn = recent.filter(t => t.amount > 0).reduce((sum, t) => sum + inView(t), 0);
+    const moneyOut = recent.filter(t => t.amount < 0).reduce((sum, t) => sum + inView(t), 0);
+    const symbol = CURRENCY_META[code].symbol;
+    const approx = converted ? '≈ ' : '';
+    document.getElementById('acct-tx-title').innerText = 'Transactions · ' + code;
+    document.getElementById('acct-tx-in').innerText = approx + symbol + formatMoney(moneyIn);
+    document.getElementById('acct-tx-out').innerText = approx + symbol + formatMoney(Math.abs(moneyOut));
 
     // Total hidden exchange cost over the same 30 days
-    const hidden = recent.map(t => getFxCost(t, account)).filter(c => c && c.significant).reduce((sum, c) => sum + c.cost, 0);
+    const hidden = recent.reduce((sum, t) => {
+        const fx = getFxCost(t, account);
+        return fx && fx.significant ? sum + convertTransactionAmount(fx.cost, account, code, t.date) : sum;
+    }, 0);
     document.getElementById('acct-tx-hidden').hidden = !hidden;
     document.getElementById('acct-tx-hidden-value').innerText = '≈ ' + symbol + formatMoney(hidden);
 
@@ -239,16 +283,20 @@ function renderAccountTransactions(account) {
         return heading +
             '<div class="tx-row" data-id="' + escapeHTML(t.id) + '" onclick="openTransaction(this.dataset.id)">' +
                 '<span class="tx-icon ' + (moneyInRow ? 'in' : 'out') + '">' + (moneyInRow ? '↓' : '↑') + '</span>' +
-                '<span class="tx-name">' + escapeHTML(t.description) + '<small>' + escapeHTML(t.category || '') + (t.original ? ' · ' + formatOriginalAmount(t.original) : '') + '</small></span>' +
-                '<span class="tx-amount' + (moneyInRow ? ' in' : '') + '">' + formatTransactionAmount(t.amount, account.currency) + '</span>' +
+                '<span class="tx-name">' + escapeHTML(t.description) +
+                    '<small>' + (t.time ? formatTransactionTime(t.time) + ' · ' : '') + escapeHTML(t.category || '') + '</small>' +
+                    (t.original ? '<small>Spent ' + formatOriginalAmount(t.original) + '</small>' : '') +
+                '</span>' +
+                '<span class="tx-amount' + (moneyInRow ? ' in' : '') + '">' + approx + formatTransactionAmount(inView(t), code) + '</span>' +
                 '<span class="tx-chevron">›</span>' +
             '</div>';
     }).join('') || '<div class="tx-empty">Nothing here yet</div>';
 
     document.getElementById('acct-tx-more').hidden = shown.length <= acctTxLimit;
-    document.getElementById('acct-tx-note').innerText = Array.isArray(account.transactions) ? ''
+    const source = Array.isArray(account.transactions) ? ''
         : usesMockTransactions(account) ? 'Sample transactions for the demo.'
         : 'These are the balance updates you\'ve entered. Individual transactions will appear here once this bank is connected.';
+    document.getElementById('acct-tx-note').innerText = (converted ? 'Converted from ' + account.currency + ' using each day\'s exchange rate. ' : '') + source;
 }
 
 // --- One transaction, opened by tapping it ---
@@ -283,6 +331,8 @@ function openTransaction(id) {
     if (!transaction) return;
     const moneyIn = transaction.amount >= 0;
     const [year] = transaction.date.split('-');
+    const code = acctViewCurrency || account.currency;
+    const convertedRow = code === account.currency ? '' : infoRowHTML('In ' + code, '≈ ' + formatTransactionAmount(convertTransactionAmount(transaction.amount, account, code, transaction.date), code));
     openInfoScreen('Transaction',
         '<div class="tx-hero">' +
             '<span class="tx-icon ' + (moneyIn ? 'in' : 'out') + '">' + (moneyIn ? '↓' : '↑') + '</span>' +
@@ -291,6 +341,8 @@ function openTransaction(id) {
         '</div>' +
         '<div class="settings-group">' +
             infoRowHTML('Date', formatRateDate(transaction.date) + ' ' + year) +
+            (transaction.time ? infoRowHTML('Time', formatTransactionTime(transaction.time)) : '') +
+            convertedRow +
             infoRowHTML('Type', transaction.opening ? 'Starting balance' : moneyIn ? 'Money in' : 'Money out') +
             (transaction.category ? infoRowHTML('Category', transaction.category) : '') +
             infoRowHTML('Account', account.name) +

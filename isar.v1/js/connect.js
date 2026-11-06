@@ -163,7 +163,7 @@ function saveLinkedAccounts() {
 function startingHistory(balance, addedDate) {
     return USER_SETTINGS.showSampleData
         ? { history: generateMockAccountHistory(balance, addedDate), historySource: 'mock' }
-        : { history: [{ date: addedDate, balance: balance }], historySource: 'manual' };
+        : { history: [{ date: addedDate, time: currentTimeHHMM(), balance: balance }], historySource: 'manual' };
 }
 
 // Applies changes to one of the user's accounts. `changes` can hold any of:
@@ -182,8 +182,8 @@ function updateLinkedAccount(id, changes) {
         const today = localISODate(new Date());
         const history = account.history;
         const last = history[history.length - 1];
-        if (last && last.date === today) last.balance = changes.balance;
-        else history.push({ date: today, balance: changes.balance });
+        if (last && last.date === today) Object.assign(last, { balance: changes.balance, time: currentTimeHHMM() });
+        else history.push({ date: today, time: currentTimeHHMM(), balance: changes.balance });
     }
     saveLinkedAccounts();
     refreshAfterAccountChange();
