@@ -66,6 +66,60 @@ function toggleSampleData() {
 function setDisplayCurrency(code) {
     selectCurrency(code);
     renderProfileCurrency();
+    showToast('Showing your net worth in ' + CURRENCY_META[code].name);
+}
+
+function toggleNotifications() {
+    toggleSetting('notifications');
+    showToast(USER_SETTINGS.notifications ? 'Daily summary on: you\'ll see it when you open Isar' : 'Daily summary off');
+}
+
+// --- Second-level pages opened from the Account screen ---
+function openInfoScreen(title, html) {
+    document.getElementById('info-title').innerText = title;
+    document.getElementById('info-content').innerHTML = html;
+    document.getElementById('info-content').scrollTop = 0;
+    document.getElementById('info-screen').classList.add('open');
+}
+
+function closeInfoScreen() {
+    document.getElementById('info-screen').classList.remove('open');
+}
+
+// Personal details: works the same for real accounts and the demo (see updateProfile in auth.js).
+function openPersonalDetails() {
+    const demo = !!getSession().demo;
+    openInfoScreen('Personal details',
+        '<form class="info-form" onsubmit="savePersonalDetails(event)" novalidate>' +
+            formInputHTML('personal-name', 'Full name', USER.name) +
+            formInputHTML('personal-email', 'Email', USER.email, 'email') +
+            '<p class="auth-error" id="personal-error" hidden></p>' +
+            '<button class="auth-btn primary" type="submit">Save changes</button>' +
+        '</form>' +
+        '<div class="settings-group">' +
+            '<div class="settings-row" style="cursor: default;"><span class="row-label">Member since</span><span class="row-value">' + escapeHTML(USER.memberSince) + '</span></div>' +
+            '<div class="settings-row" style="cursor: default;"><span class="row-label">Account type</span><span class="row-value">' + (demo ? 'Demo' : 'Personal') + '</span></div>' +
+        '</div>' +
+        '<p class="info-note">' + (demo ? 'This is the demo profile. Changes last until you exit the demo.' : 'Your details are saved on this device for now.') + '</p>');
+}
+
+async function savePersonalDetails(event) {
+    event.preventDefault();
+    const button = event.target.querySelector('button[type="submit"]');
+    const error = document.getElementById('personal-error');
+    error.hidden = true;
+    button.classList.add('loading');
+    try {
+        await updateProfile(document.getElementById('personal-name').value, document.getElementById('personal-email').value);
+        Object.assign(USER, { name: getSession().name, email: getSession().email });
+        renderUser();
+        closeInfoScreen();
+        showToast('Your details have been saved');
+    } catch (err) {
+        error.innerText = err.message;
+        error.hidden = false;
+    }
+    button.classList.remove('loading');
 }
 
 function openProfile() {

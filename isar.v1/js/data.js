@@ -4,6 +4,7 @@
 // Every institution you can link: the top 40 global banks, then fintechs, brokers and crypto
 // exchanges. `domain` is the website, used to fetch the logo (logos.js). `kind` (when not a
 // bank) lets a search for a category word find it, e.g. "crypto" finds every exchange.
+// `monogram` replaces the logo where logo.dev has none of its own (CommSec only has CommBank's).
 const topBanks = [
     { name: "JPMorgan Chase", code: "JPM", color: "#1D4ED8", domain: "chase.com" },
     { name: "Bank of America", code: "BAC", color: "#DC2626", domain: "bankofamerica.com" },
@@ -65,7 +66,7 @@ const topBanks = [
     { name: "Robinhood", code: "HOOD", color: "#CCFF00", domain: "robinhood.com", kind: "broker" },
     { name: "eToro", code: "ETOR", color: "#13C636", domain: "etoro.com", kind: "broker" },
     { name: "Trading 212", code: "T212", color: "#1A73E8", domain: "trading212.com", kind: "broker" },
-    { name: "CommSec", code: "CSEC", color: "#FFCC00", domain: "commsec.com.au", kind: "broker" },
+    { name: "CommSec", code: "CSEC", color: "#111111", monogram: "CS", kind: "broker" },
     { name: "Stake", code: "STK", color: "#111111", domain: "hellostake.com", kind: "broker" },
     { name: "Hargreaves Lansdown", code: "HL", color: "#0A2240", domain: "hl.co.uk", kind: "broker" },
 

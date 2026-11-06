@@ -26,10 +26,11 @@ function loadSavedData() {
             displayCurrency: typeof data.displayCurrency === 'string' ? data.displayCurrency : null,
             // Daily net-worth records (see snapshots.js), same shape as HISTORY records.
             snapshots: Array.isArray(data.snapshots) ? data.snapshots.filter(isValidSnapshot) : [],
-            setupDone: data.setupDone === true      // finished the first-run setup (setup.js)
+            setupDone: data.setupDone === true,     // finished the first-run setup (setup.js)
+            lastSummaryDate: typeof data.lastSummaryDate === 'string' ? data.lastSummaryDate : null   // last daily summary shown
         };
     } catch (e) {
-        return { linkedAccounts: [], settings: {}, displayCurrency: null, snapshots: [], setupDone: false };
+        return { linkedAccounts: [], settings: {}, displayCurrency: null, snapshots: [], setupDone: false, lastSummaryDate: null };
     }
 }
 
@@ -43,9 +44,10 @@ function saveData() {
 
 Object.assign(USER_SETTINGS, SAVED.settings);
 
-// The signed-in person replaces the sample user. The demo keeps the sample user and always shows sample data.
-if (AUTH_SESSION && !AUTH_SESSION.demo) {
-    Object.assign(USER, { name: AUTH_SESSION.name, email: AUTH_SESSION.email, memberSince: AUTH_SESSION.memberSince });
+// The signed-in person replaces the sample user. The demo keeps the sample user (unless its
+// name was edited in Personal details) and always shows sample data.
+if (AUTH_SESSION && AUTH_SESSION.name) {
+    Object.assign(USER, { name: AUTH_SESSION.name, email: AUTH_SESSION.email, memberSince: AUTH_SESSION.memberSince || USER.memberSince });
 }
 if (AUTH_SESSION && AUTH_SESSION.demo) USER_SETTINGS.showSampleData = true;
 else if (SAVED.settings.showSampleData === undefined) USER_SETTINGS.showSampleData = false;   // real users start with only their own accounts

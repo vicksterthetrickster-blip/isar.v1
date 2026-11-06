@@ -46,7 +46,7 @@ function filterBanks() {
     const filtered = searchBanks(query);
 
     if (filtered.length === 0) {
-        resultsBox.innerHTML = '<div style="padding: 12px 14px; font-size: 12px; color: #71717A;">No banks match your search</div>';
+        resultsBox.innerHTML = '<div style="padding: 12px 14px; font-size: 13px; color: #71717A;">No banks match your search</div>';
         resultsBox.style.display = 'block';
         return;
     }
@@ -55,9 +55,9 @@ function filterBanks() {
         <div class="bank-result" onclick="promptConnect(${topBanks.indexOf(b)})">
             <div style="display: flex; align-items: center; gap: 10px;">
                 ${bankIconHTML(b, 28)}
-                <span style="font-size: 13px; font-weight: 600; color: #fff;">${highlightBankName(b.name, query)}</span>
+                <span style="font-size: 14px; font-weight: 600; color: #fff;">${highlightBankName(b.name, query)}</span>
             </div>
-            <span style="font-size: 11px; color: ${isBankLinked(b.name) ? '#71717A' : '#00FF85'}; font-weight: 600;">${isBankLinked(b.name) ? 'Linked ✓' : 'Connect'}</span>
+            <span style="font-size: 12px; color: ${isBankLinked(b.name) ? '#71717A' : '#00FF85'}; font-weight: 600;">${isBankLinked(b.name) ? 'Linked ✓' : 'Connect'}</span>
         </div>
     `).join('');
     resultsBox.scrollTop = 0;
@@ -118,10 +118,10 @@ function renderConnectTab() {
         '<div class="account-row" style="margin-bottom: 0;">' +
             '<div style="display: flex; align-items: center; gap: 10px; min-width: 0;">' +
                 bankIconHTML(a, 32) +
-                '<div style="min-width: 0;"><div style="font-size: 13px; font-weight: 600;">' + escapeHTML(a.name) + '</div>' +
-                '<div style="font-size: 11px; color: #71717A;">' + formatAccountBalance(a) + '</div></div>' +
+                '<div style="min-width: 0;"><div style="font-size: 14px; font-weight: 600;">' + escapeHTML(a.name) + '</div>' +
+                '<div style="font-size: 12px; color: #71717A;">' + formatAccountBalance(a) + '</div></div>' +
             '</div>' +
-            '<button class="interactive-btn" onclick="removeLinkedAccount(\'' + a.id + '\')" style="background: #1E1E24; color: #FF4D6D; border: 1px solid #27272A; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;">Remove</button>' +
+            '<button class="interactive-btn" onclick="removeLinkedAccount(\'' + a.id + '\')" style="background: #1E1E24; color: #FF4D6D; border: 1px solid #27272A; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;">Remove</button>' +
         '</div>'
     ).join('');
 
@@ -130,8 +130,8 @@ function renderConnectTab() {
     document.getElementById('connect-container').innerHTML = suggestions.map(b =>
         '<div class="account-row" style="margin-bottom: 0;">' +
             '<div style="display: flex; align-items: center; gap: 10px;">' + bankIconHTML(b, 32) +
-            '<span style="font-size: 13px; font-weight: 600;">' + escapeHTML(b.name) + '</span></div>' +
-            '<button class="interactive-btn" onclick="promptConnect(' + topBanks.indexOf(b) + ')" style="background: #1E1E24; color: #fff; border: 1px solid #27272A; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;">+ Link</button>' +
+            '<span style="font-size: 14px; font-weight: 600;">' + escapeHTML(b.name) + '</span></div>' +
+            '<button class="interactive-btn" onclick="promptConnect(' + topBanks.indexOf(b) + ')" style="background: #1E1E24; color: #fff; border: 1px solid #27272A; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;">+ Link</button>' +
         '</div>'
     ).join('');
 }
@@ -285,7 +285,7 @@ function promptConnect(bankIndex) {
         document.getElementById('modal-title').innerText = bank.name + ' is already linked';
         document.getElementById('modal-desc').innerText = 'You can remove it from "Your linked banks" on the Connect tab.';
         document.getElementById('modal-actions').innerHTML =
-            '<button onclick="closeModal()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">OK</button>';
+            '<button onclick="closeModal()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">OK</button>';
     } else {
         document.getElementById('modal-title').innerText = 'Securely connect ' + bank.name + '?';
         document.getElementById('modal-desc').innerText = 'Isar uses secure, read-only tokenization to sync your balances without storing credentials.';
@@ -303,8 +303,8 @@ function startSecureConnect() {
     modalBox.innerHTML = `
         <div style="width: 36px; height: 36px; border: 3px solid #27272A; border-top-color: #00FF85; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto;"></div>
         <div>
-            <h3 style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px;">Redirecting to ${name}</h3>
-            <p style="font-size: 11px; color: #A1A1AA; line-height: 1.4;">Taking you to your bank to securely authorize reading...</p>
+            <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px;">Redirecting to ${name}</h3>
+            <p style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">Taking you to your bank to securely authorize reading...</p>
         </div>
     `;
 
@@ -316,16 +316,16 @@ function startSecureConnect() {
             <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(0,255,133,0.15); color: #00FF85; font-size: 22px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">✓</div>
             <div>
                 <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Authorized</h3>
-                <p style="font-size: 12px; color: #A1A1AA;">Enter the current balance of your ${name} account.</p>
+                <p style="font-size: 13px; color: #A1A1AA;">Enter the current balance of your ${name} account.</p>
             </div>
             <!-- Balance and currency on separate full-width rows: side by side, the long currency
                  names made the picker so wide that the balance box got squashed. -->
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 <input id="link-balance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" style="width: 100%; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 14px; color: #fff; font-size: 18px; font-weight: 700; outline: none;">
-                <select id="link-currency" style="width: 100%; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px;">${currencyOptions}</select>
+                <select id="link-currency" style="width: 100%; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px;">${currencyOptions}</select>
             </div>
-            <p id="link-error" style="display: none; font-size: 11px; color: #FF4D6D; margin-top: -6px;">Enter a balance of 0 or more.</p>
-            <button onclick="finishLinking()" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%;">Add to portfolio</button>
+            <p id="link-error" style="display: none; font-size: 12px; color: #FF4D6D; margin-top: -6px;">Enter a balance of 0 or more.</p>
+            <button onclick="finishLinking()" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%;">Add to portfolio</button>
         `;
         document.getElementById('link-balance').focus();
     }, 2200);
@@ -345,9 +345,9 @@ function finishLinking() {
         <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(0,255,133,0.15); color: #00FF85; font-size: 22px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">✓</div>
         <div>
             <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Successfully Linked</h3>
-            <p style="font-size: 12px; color: #A1A1AA;">${escapeHTML(selectedBankName)} has been added to your global portfolio.</p>
+            <p style="font-size: 13px; color: #A1A1AA;">${escapeHTML(selectedBankName)} has been added to your global portfolio.</p>
         </div>
-        <button onclick="closeModalAndReset()" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%;">Done</button>
+        <button onclick="closeModalAndReset()" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%;">Done</button>
     `;
 }
 
@@ -358,11 +358,11 @@ function closeModalAndReset() {
         <div id="modal-icon" style="width: 48px; height: 48px; border-radius: 12px; background: #00FF85; color: #000; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto;">C</div>
         <div>
             <h3 id="modal-title" style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Securely connect?</h3>
-            <p id="modal-desc" style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">Isar uses secure, read-only tokenization.</p>
+            <p id="modal-desc" style="font-size: 13px; color: #A1A1AA; line-height: 1.4;">Isar uses secure, read-only tokenization.</p>
         </div>
         <div id="modal-actions" style="display: flex; gap: 10px;">
-            <button onclick="closeModal()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">Cancel</button>
-            <button onclick="startSecureConnect()" style="flex: 1; background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer;">Okay</button>
+            <button onclick="closeModal()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Cancel</button>
+            <button onclick="startSecureConnect()" style="flex: 1; background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 14px; font-weight: 700; cursor: pointer;">Okay</button>
         </div>
     `;
 }

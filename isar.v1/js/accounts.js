@@ -20,13 +20,13 @@ function accountRowHTML(account, extraStyle) {
     return '<div class="account-row" onclick="openAccount(\'' + account.id + '\')"' + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' +
         '<div style="display: flex; align-items: center; gap: 12px;">' +
             bankIconHTML(account, 36) +
-            '<div><div style="font-size: 13px; font-weight: 600;">' + escapeHTML(account.name) + '</div>' +
-            '<div style="font-size: 11px; color: #71717A;">' + escapeHTML(account.type) + '</div></div>' +
+            '<div><div style="font-size: 14px; font-weight: 600;">' + escapeHTML(account.name) + '</div>' +
+            '<div style="font-size: 12px; color: #71717A;">' + escapeHTML(account.type) + '</div></div>' +
         '</div>' +
         '<div style="display: flex; align-items: center; gap: 8px;">' +
             '<div style="text-align: right;">' +
-                '<div style="font-size: 13px; font-weight: 700;">' + formatAccountBalance(account) + '</div>' +
-                (converted ? '<div style="font-size: 11px; color: #71717A; margin-top: 2px;">' + converted + '</div>' : '') +
+                '<div style="font-size: 14px; font-weight: 700;">' + formatAccountBalance(account) + '</div>' +
+                (converted ? '<div style="font-size: 12px; color: #71717A; margin-top: 2px;">' + converted + '</div>' : '') +
             '</div>' +
             '<span style="font-size: 16px; color: #71717A;">›</span>' +
         '</div>' +
@@ -50,7 +50,7 @@ function renderAccountRows() {
     const ordered = getAccountsInDisplayOrder();
     document.getElementById('visible-accounts').innerHTML = ordered.length
         ? ordered.slice(0, VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a)).join('')
-        : '<div style="font-size: 12px; color: #71717A; text-align: center; padding: 16px 0;">No accounts yet. Add one on the Connect tab.</div>';
+        : '<div style="font-size: 13px; color: #71717A; text-align: center; padding: 16px 0;">No accounts yet. Add one on the Connect tab.</div>';
     document.getElementById('extra-accounts').innerHTML =
         ordered.slice(VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a, 'margin-bottom: 0;')).join('');
 }
@@ -101,6 +101,8 @@ function openAccount(id) {
     if (!account) return;
     openAccountId = id;
     acctViewCurrency = account.currency;             // always starts on the account's own currency
+    acctTxFilter = 'all';
+    acctTxLimit = TX_PAGE_SIZE;
     document.getElementById('curr-menu').classList.remove('open');
     renderAccountDetail();
     document.getElementById('account-screen').classList.add('open');
@@ -122,7 +124,7 @@ function setAccountTimeframe(label) {
 function renderAccountTimeframes() {
     document.getElementById('acct-timeframes').innerHTML = ACCOUNT_TIMEFRAMES.map(pair => {
         const active = pair[1] === accountTimeframe;
-        return '<button class="interactive-btn" onclick="setAccountTimeframe(\'' + pair[1] + '\')" style="flex: 1; padding: 6px 0; border-radius: 8px; font-size: 11px; ' +
+        return '<button class="interactive-btn" onclick="setAccountTimeframe(\'' + pair[1] + '\')" style="flex: 1; padding: 6px 0; border-radius: 8px; font-size: 12px; ' +
             'border: 1px solid ' + (active ? '#00FF85' : '#27272A') + '; background: ' + (active ? '#27272A' : '#18181B') + '; ' +
             'color: ' + (active ? '#00FF85' : '#fff') + '; font-weight: ' + (active ? '700' : '600') + ';">' + pair[0] + '</button>';
     }).join('');
@@ -190,6 +192,7 @@ function renderAccountDetail() {
     renderAccountTimeframes();
     const layout = drawGraph(points, { line: 'acct-graph-line', area: 'acct-graph-area', svg: 'acct-graph-svg', labels: 'acct-graph-labels', empty: 'acct-graph-empty', pct: 'acct-graph-pct' });
     drawAddedMarkers('acct-graph-markers', layout, getAddedMarkers([account]));
+    renderAccountTransactions(account);
 
     // Details
     const totalAUD = getPortfolioTotalAUD();
@@ -201,12 +204,12 @@ function renderAccountDetail() {
 
 // --- Your own accounts: update balance, edit, remove ---
 // Only accounts the user added can be changed; the sample accounts are read-only.
-const ACCT_BTN_STYLE = 'flex: 1; border-radius: 12px; padding: 10px 0; font-size: 12px; font-weight: 700; ';
+const ACCT_BTN_STYLE = 'flex: 1; border-radius: 12px; padding: 10px 0; font-size: 13px; font-weight: 700; ';
 
 function renderAcctActions(account) {
     const el = document.getElementById('acct-actions');
     if (!account.userLinked) {
-        el.innerHTML = '<div style="font-size: 11px; color: #71717A; text-align: center;">Sample account (read-only). Turn off "Show sample data" in Account settings to use only your own accounts.</div>';
+        el.innerHTML = '<div style="font-size: 12px; color: #71717A; text-align: center;">Sample account (read-only). Turn off "Show sample data" in Account settings to use only your own accounts.</div>';
         return;
     }
     el.innerHTML =
@@ -220,10 +223,10 @@ function showAccountForm(title, fieldsHTML, saveCall) {
     document.getElementById('modal-content-box').innerHTML =
         '<h3 style="font-size: 16px; font-weight: 700; color: #fff;">' + title + '</h3>' +
         fieldsHTML +
-        '<p id="acct-form-error" style="display: none; font-size: 11px; color: #FF4D6D; margin-top: -6px;"></p>' +
+        '<p id="acct-form-error" style="display: none; font-size: 12px; color: #FF4D6D; margin-top: -6px;"></p>' +
         '<div style="display: flex; gap: 10px;">' +
-            '<button onclick="closeModalAndReset()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">Cancel</button>' +
-            '<button onclick="' + saveCall + '" style="flex: 1; background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700; cursor: pointer;">Save</button>' +
+            '<button onclick="closeModalAndReset()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Cancel</button>' +
+            '<button onclick="' + saveCall + '" style="flex: 1; background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 14px; font-weight: 700; cursor: pointer;">Save</button>' +
         '</div>';
     document.getElementById('secure-modal').style.display = 'flex';
     const first = document.querySelector('#modal-content-box input');
@@ -231,9 +234,9 @@ function showAccountForm(title, fieldsHTML, saveCall) {
 }
 
 function formInputHTML(id, label, value, type) {
-    return '<label style="display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 11px; color: #A1A1AA;">' + label +
+    return '<label style="display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 12px; color: #A1A1AA;">' + label +
         '<input id="' + id + '" type="' + (type || 'text') + '"' + (type === 'number' ? ' inputmode="decimal" min="0" step="0.01"' : '') +
-        ' value="' + escapeHTML(value) + '" style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; outline: none;"></label>';
+        ' value="' + escapeHTML(value) + '" style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; outline: none;"></label>';
 }
 
 function showAccountFormError(message) {
@@ -246,7 +249,7 @@ function openUpdateBalance() {
     const account = ACCOUNTS.find(a => a.id === openAccountId);
     if (!account) return;
     showAccountForm('Update balance',
-        '<p style="font-size: 12px; color: #A1A1AA; margin-top: -8px;">Today\'s balance of ' + escapeHTML(account.name) + ' in ' + account.currency + '. It\'s saved in the account\'s history.</p>' +
+        '<p style="font-size: 13px; color: #A1A1AA; margin-top: -8px;">Today\'s balance of ' + escapeHTML(account.name) + ' in ' + account.currency + '. It\'s saved in the account\'s history.</p>' +
         formInputHTML('acct-form-balance', 'Balance (' + account.currency + ')', account.balance, 'number'),
         'saveUpdatedBalance()');
 }
@@ -265,7 +268,7 @@ function openEditAccount() {
     showAccountForm('Edit account',
         formInputHTML('acct-form-name', 'Name', account.name) +
         formInputHTML('acct-form-type', 'Type (e.g. Savings, Checking)', account.type) +
-        '<p style="font-size: 11px; color: #71717A; margin-top: -6px;">Currency can\'t be changed, because the history is stored in ' + account.currency + '. To change it, remove the account and add it again.</p>',
+        '<p style="font-size: 12px; color: #71717A; margin-top: -6px;">Currency can\'t be changed, because the history is stored in ' + account.currency + '. To change it, remove the account and add it again.</p>',
         'saveEditedAccount()');
 }
 

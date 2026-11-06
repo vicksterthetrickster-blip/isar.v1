@@ -84,7 +84,7 @@ function drawAddedMarkers(groupId, layout, markers) {
         lastX = x;
         const nearRight = x > layout.W * 0.7;
         return '<line x1="' + x.toFixed(1) + '" x2="' + x.toFixed(1) + '" y1="0" y2="' + layout.H + '" stroke="#71717A" stroke-width="1" stroke-dasharray="3,3" vector-effect="non-scaling-stroke"/>' +
-            '<text x="' + (nearRight ? x - 3 : x + 3).toFixed(1) + '" y="' + (7 + row * 9) + '" font-size="8" fill="#A1A1AA" text-anchor="' + (nearRight ? 'end' : 'start') + '">' + escapeHTML(m.label) + '</text>';
+            '<text x="' + (nearRight ? x - 3 : x + 3).toFixed(1) + '" y="' + (7 + row * 9) + '" font-size="9" fill="#A1A1AA" text-anchor="' + (nearRight ? 'end' : 'start') + '">' + escapeHTML(m.label) + '</text>';
     }).join('');
 }
 

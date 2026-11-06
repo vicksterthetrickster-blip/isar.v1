@@ -101,6 +101,24 @@ async function startDemo() {
     writeAuthStore(store);
 }
 
+// Saves a new name and email. In the demo they only last until you exit it (startDemo resets them).
+async function updateProfile(name, email) {
+    name = name.trim(); email = email.trim().toLowerCase();
+    if (!name) throw new Error('Enter your name.');
+    if (!isValidEmail(email)) throw new Error('Enter a valid email address.');
+    await authDelay();
+
+    const store = readAuthStore();
+    if (!AUTH_SESSION.demo) {
+        if (email !== AUTH_SESSION.email && store.users[email]) throw new Error('There\'s already an account with that email.');
+        delete store.users[AUTH_SESSION.email];
+    }
+    Object.assign(AUTH_SESSION, { name: name, email: email });
+    if (!AUTH_SESSION.demo) store.users[email] = AUTH_SESSION;
+    store.session = AUTH_SESSION;
+    writeAuthStore(store);
+}
+
 async function signOut() {
     const store = readAuthStore();
     store.session = null;

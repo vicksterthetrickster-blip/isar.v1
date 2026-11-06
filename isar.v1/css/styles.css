@@ -37,7 +37,7 @@
         body { background: #050507; min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #fff; }
         .phone-frame { width: 390px; height: 844px; background: #09090B; border-radius: 44px; border: 4px solid #27272A; overflow: hidden; display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); }
         .header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1E1E24; background: #09090B; z-index: 10; }
-        .content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 16px; padding-bottom: calc(68px + var(--nav-bottom-pad)); scrollbar-width: none; }
+        .content { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 12px 12px 0; display: flex; flex-direction: column; gap: 16px; scrollbar-width: none; }
         .content::-webkit-scrollbar { display: none; }
         /* Sections keep their full height, so the page scrolls. Without this, the column squeezed
            every section to fit the screen: nothing could scroll and the last account got clipped. */
@@ -47,7 +47,12 @@
            visible area, so even a screen that fits (e.g. on a Pro Max) still drags and springs back.
            It's absolutely positioned, so it doesn't move anything else. */
         .content { position: relative; }
-        .content::after { content: ''; position: absolute; top: 0; left: 0; width: 1px; height: calc(100% + 1px); pointer-events: none; }
+        .content::before { content: ''; position: absolute; top: 0; left: 0; width: 1px; height: calc(100% + 1px); pointer-events: none; }
+        /* Empty space at the end of each page, so the last item can scroll clear of the bottom.
+           A real (invisible) item, not padding: Safari on iPhone can ignore bottom padding in a
+           scrolling column, which left the end of the page tucked behind the tab bar. */
+        .content::after { content: ''; flex-shrink: 0; height: calc(24px + env(safe-area-inset-bottom, 0px)); }
+        .phone-frame > .content::after { height: calc(53px + var(--nav-bottom-pad)); }   /* tab bar height, + the 16px gap above it */
 
         /* --- Feel like a native app, not a web page --- */
         html, body { overscroll-behavior: none; }               /* no rubber-band bounce of the whole page */
@@ -78,9 +83,9 @@
         .nav-btn.active svg { stroke-width: 2.1; }
         .account-row { background: #121216; border: 1px solid #1E1E24; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; transition: transform 0.15s ease, background 0.15s ease; cursor: pointer; }
         .account-row:active { transform: scale(0.97); background: #18181B; }
-        .dropdown-menu { position: absolute; top: 65px; right: 15px; background: #18181B; border: 1px solid #27272A; border-radius: 16px; padding: 8px; z-index: 50; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.8); width: 220px; display: none; animation: fadeIn 0.15s ease; }
+        .dropdown-menu { position: absolute; top: 65px; right: 15px; background: #18181B; border: 1px solid #27272A; border-radius: 18px; padding: 10px; z-index: 50; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.8); width: 264px; display: none; animation: fadeIn 0.15s ease; }
         .dropdown-menu.open { display: block; }
-        .dropdown-item { width: 100%; background: transparent; border: none; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #fff; font-size: 12px; transition: background 0.1s; }
+        .dropdown-item { width: 100%; background: transparent; border: none; border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: #fff; font-size: 15px; transition: background 0.1s; }
         .dropdown-item.active, .dropdown-item:active { background: #27272A; color: #00FF85; font-weight: 700; }
         @media (hover: hover) { .dropdown-item:hover { background: #27272A; color: #00FF85; font-weight: 700; } }
         /* Bank search results (Connect tab) */
@@ -88,7 +93,7 @@
         .bank-result:active { background: #27272A; }
         @media (hover: hover) { .bank-result:hover { background: #27272A; } }
         /* ~30 currencies: the lists scroll instead of running off the screen */
-        #curr-items, #acct-curr-items { max-height: 260px; overflow-y: auto; }
+        #curr-items, #acct-curr-items { max-height: 320px; overflow-y: auto; }
         .tab-panel { display: none; flex-direction: column; gap: 16px; animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
         .tab-panel.active { display: flex; }
         .interactive-btn { transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s; cursor: pointer; }
@@ -112,10 +117,10 @@
         /* Performance detail screen */
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .stat-tile { background: #121216; border: 1px solid #1E1E24; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
-        .stat-tile-label { font-size: 10px; color: #71717A; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-        .stat-tile-value { font-size: 15px; font-weight: 800; }
-        .stat-tile-sub { font-size: 10px; color: #71717A; }
-        .perf-timeframe-btn { flex: 1; padding: 7px 0; border-radius: 9px; font-size: 11px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+        .stat-tile-label { font-size: 11px; color: #71717A; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+        .stat-tile-value { font-size: 16px; font-weight: 800; }
+        .stat-tile-sub { font-size: 11px; color: #71717A; }
+        .perf-timeframe-btn { flex: 1; padding: 7px 0; border-radius: 9px; font-size: 12px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
         #perf-graph-svg { touch-action: none; }
         #perf-guide, #perf-guide-y, #perf-dot { transition: opacity 0.12s ease; }
         /* --- On a real phone (or opened from the home screen): no mockup frame, fill the screen ---
@@ -132,11 +137,11 @@
                 height: auto; max-height: none;
                 border: none; border-radius: 0; box-shadow: none;
             }
-            .header { flex-shrink: 0; padding-top: calc(12px + env(safe-area-inset-top)); }
+            .header { flex-shrink: 0; padding: calc(14px + env(safe-area-inset-top)) 20px 16px; }
             /* The tab bar's background runs to the very bottom of the screen; only its padding changes.
                The home-bar area (safe-area-inset-bottom) is ~34px, but the home-bar LINE only uses the
                bottom ~13px of it. So the icons may sit 14px lower than that area's top edge without
-               ever touching the line. (The .content padding above follows automatically.) */
+               ever touching the line. (The spacer at the end of .content follows automatically.) */
             :root { --nav-bottom-pad: max(14px, calc(env(safe-area-inset-bottom) - 14px)); }
             /* iPhone zooms into any text box under 16px when you tap it; 16px stops that */
             input, select { font-size: 16px !important; }
@@ -144,7 +149,7 @@
 
         @media (prefers-reduced-motion: reduce) {
             .rates-btn.refreshing .rates-icon, .pulsing, .status-swap, .value-refresh { animation: none; }
-            .profile-screen, .account-screen, .perf-screen, .phone-frame > .header, .phone-frame > .content, .phone-frame > .nav-bar { transition: none !important; }
+            .profile-screen, .account-screen, .perf-screen, .info-screen, .phone-frame > .header, .phone-frame > .content, .phone-frame > .nav-bar { transition: none !important; }
             #secure-modal, #signout-dialog, #modal-content-box, #signout-dialog > div { animation: none !important; }
         }
 
@@ -160,12 +165,12 @@
            Like iOS: a screen slides in from the right while the app behind it drifts a little to the
            left, and slides back out on close. Closed screens wait off to the right, invisible
            (`visibility` switches off only AFTER the slide-out finishes). Swipe-back: ui.js. */
-        .profile-screen, .account-screen, .perf-screen {
+        .profile-screen, .account-screen, .perf-screen, .info-screen {
             position: absolute; inset: 0; background: #09090B; z-index: 60; display: flex; flex-direction: column;
             transform: translateX(100%); visibility: hidden; box-shadow: -16px 0 40px rgba(0, 0, 0, 0.6);
             transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.42s;
         }
-        .profile-screen.open, .account-screen.open, .perf-screen.open {
+        .profile-screen.open, .account-screen.open, .perf-screen.open, .info-screen.open {
             transform: translateX(0); visibility: visible;
             transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
         }
@@ -188,9 +193,9 @@
         .auth-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
         .auth-logo { width: 88px; height: 88px; border-radius: 22px; box-shadow: 0 0 40px rgba(0, 255, 133, 0.18); }
         .auth-title { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
-        .auth-tagline { font-size: 14px; color: #A1A1AA; max-width: 240px; line-height: 1.4; }
+        .auth-tagline { font-size: 15px; color: #A1A1AA; max-width: 240px; line-height: 1.4; }
         .auth-actions { display: flex; flex-direction: column; gap: 10px; }
-        .auth-btn { width: 100%; border-radius: 14px; padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer; border: none;
+        .auth-btn { width: 100%; border-radius: 14px; padding: 15px; font-size: 16px; font-weight: 700; cursor: pointer; border: none;
                     transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s; }
         .auth-btn:active { transform: scale(0.97); opacity: 0.85; }
         .auth-btn.primary { background: #00FF85; color: #000; }
@@ -198,15 +203,15 @@
         .auth-btn.loading { pointer-events: none; color: transparent; position: relative; }
         .auth-btn.loading::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
                                    border: 2px solid rgba(0, 0, 0, 0.25); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; }
-        .auth-link { background: none; border: none; color: #A1A1AA; font-size: 13px; font-weight: 600; padding: 10px; cursor: pointer; }
+        .auth-link { background: none; border: none; color: #A1A1AA; font-size: 14px; font-weight: 600; padding: 10px; cursor: pointer; }
         .auth-back { align-self: flex-start; width: 36px; height: 36px; border-radius: 50%; background: #18181B; border: 1px solid #27272A;
                      color: #fff; font-size: 20px; line-height: 1; padding-bottom: 2px; cursor: pointer; margin-bottom: 12px; }
         .auth-heading { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-        .auth-sub { font-size: 13px; color: #A1A1AA; margin-bottom: 12px; }
+        .auth-sub { font-size: 14px; color: #A1A1AA; margin-bottom: 12px; }
         .auth-input { background: #121216; border: 1px solid #27272A; border-radius: 14px; padding: 15px 14px; color: #fff; font-size: 16px; outline: none; transition: border-color 0.15s; }
         .auth-input:focus { border-color: #00FF85; }
-        .auth-error { font-size: 12px; color: #FF4D6D; }
-        .auth-note { font-size: 11px; color: #71717A; text-align: center; margin-top: 4px; }
+        .auth-error { font-size: 13px; color: #FF4D6D; }
+        .auth-note { font-size: 12px; color: #71717A; text-align: center; margin-top: 4px; }
 
         /* --- First-run setup (reuses the sign-in styles above) --- */
         .setup-screen { z-index: 90; overflow: hidden; }                 /* under pop-ups (100), so "add a bank" works */
@@ -217,21 +222,21 @@
         .setup-list { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
         .setup-list.grow { flex: 1; flex-shrink: 1; min-height: 120px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
         .setup-list.grow::-webkit-scrollbar { display: none; }
-        .setup-list-label { font-size: 12px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+        .setup-list-label { font-size: 13px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
         .setup-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #121216; border: 1px solid #1E1E24;
-                      border-radius: 14px; padding: 11px 14px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+                      border-radius: 14px; padding: 11px 14px; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; flex-shrink: 0;
                       transition: border-color 0.15s, background 0.15s, transform 0.12s; }
         .setup-item:active { transform: scale(0.98); background: #18181B; }
         .setup-item.selected { border-color: #00FF85; background: rgba(0, 255, 133, 0.06); }
         .setup-item.added { cursor: default; border-color: rgba(0, 255, 133, 0.35); }
         .setup-flag { font-size: 22px; line-height: 1; }
         .setup-item-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-        .setup-item-name small { font-size: 11px; color: #71717A; font-weight: 500; margin-top: 1px; }
+        .setup-item-name small { font-size: 12px; color: #71717A; font-weight: 500; margin-top: 1px; }
         .setup-tick { color: #00FF85; font-weight: 800; opacity: 0; }
         .setup-item.selected .setup-tick, .setup-item.added .setup-tick { opacity: 1; }
-        .setup-add { font-size: 12px; font-weight: 700; color: #00FF85; }
+        .setup-add { font-size: 13px; font-weight: 700; color: #00FF85; }
         .setup-add.done { color: #71717A; }
-        .setup-empty { font-size: 13px; color: #71717A; text-align: center; padding: 16px 0; }
+        .setup-empty { font-size: 14px; color: #71717A; text-align: center; padding: 16px 0; }
         .setup-check { width: 72px; height: 72px; border-radius: 50%; background: rgba(0, 255, 133, 0.15); color: #00FF85; font-size: 34px;
                        display: flex; align-items: center; justify-content: center; animation: popIn 0.5s cubic-bezier(0.32, 0.72, 0, 1); }
         .setup-networth { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
@@ -245,20 +250,64 @@
         .bank-icon.light { color: #111113; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
         .bank-icon.light img { filter: brightness(0.07); }
 
+        /* Money in & out (transactions.js) */
+        .tx-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .tx-summary > div { background: #18181B; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .tx-summary small { font-size: 11px; color: #71717A; font-weight: 600; }
+        .tx-summary strong { font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+        .tx-filter { flex: 1; padding: 8px 0; border-radius: 9px; font-size: 13px; font-weight: 600; border: 1px solid #27272A; background: #18181B; color: #fff; }
+        .tx-filter.active { border-color: #00FF85; background: #27272A; color: #00FF85; font-weight: 700; }
+        .tx-day { font-size: 12px; font-weight: 600; color: #71717A; padding: 12px 0 4px; }
+        .tx-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+        .tx-icon { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; }
+        .tx-icon.in { background: rgba(0, 255, 133, 0.12); color: #00FF85; }
+        .tx-icon.out { background: #1E1E24; color: #A1A1AA; }
+        .tx-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; display: flex; flex-direction: column; gap: 1px; }
+        .tx-name small { font-size: 12px; font-weight: 500; color: #71717A; }
+        .tx-amount { flex-shrink: 0; font-size: 14px; font-weight: 700; }
+        .tx-amount.in { color: #00FF85; }
+        .tx-empty { font-size: 13px; color: #71717A; text-align: center; padding: 16px 0; }
+        .tx-more { background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 10px; color: #fff; font-size: 13px; font-weight: 600; }
+
+        /* Second-level pages: Personal details, Help, Privacy, About */
+        .info-form { display: flex; flex-direction: column; gap: 12px; }
+        .info-note { font-size: 13px; color: #71717A; line-height: 1.45; text-align: center; }
+        .info-note a { color: #A1A1AA; }
+        .info-text { font-size: 14px; color: #D4D4D8; line-height: 1.5; }
+        .info-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0; text-align: center; }
+        .info-hero img { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 6px; }
+        .info-hero strong { font-size: 22px; font-weight: 800; }
+        .info-hero span { font-size: 14px; color: #A1A1AA; }
+        .faq { border-bottom: 1px solid #1E1E24; }
+        .faq:last-child { border-bottom: none; }
+        .faq summary { padding: 14px; font-size: 14px; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+        .faq summary::-webkit-details-marker { display: none; }
+        .faq summary::after { content: '›'; color: #71717A; transition: transform 0.2s ease; }
+        .faq[open] summary::after { transform: rotate(90deg); }
+        .faq p { padding: 0 14px 14px; font-size: 14px; color: #A1A1AA; line-height: 1.5; }
+
+        /* Short message at the top of the screen (showToast) */
+        @keyframes toastInOut { 0% { opacity: 0; transform: translateY(-16px); } 8%, 90% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-8px); } }
+        .toast { position: absolute; left: 16px; right: 16px; top: calc(14px + env(safe-area-inset-top, 0px)); z-index: 150; pointer-events: none;
+                 background: #1E1E24; border: 1px solid #27272A; border-radius: 14px; padding: 12px 14px; color: #fff; font-size: 14px; font-weight: 600; text-align: center;
+                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6); }
+        .toast.show { animation: toastInOut 3.2s ease forwards; }
+
         /* Home tab with no accounts yet */
         .home-empty { align-items: center; text-align: center; gap: 10px; padding: 28px 20px; }
         .home-empty-icon { width: 52px; height: 52px; border-radius: 16px; background: rgba(0, 255, 133, 0.12); color: #00FF85;
                            font-size: 28px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
 
         /* Account & Settings screen */
-        .section-label { font-size: 12px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .section-label { font-size: 13px; font-weight: 600; color: #71717A; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .settings-group { background: #121216; border: 1px solid #1E1E24; border-radius: 16px; overflow: hidden; }
-        .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #1E1E24; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease; }
+        .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #1E1E24; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s ease; }
         .settings-row:last-child { border-bottom: none; }
         .settings-row:active { background: #18181B; }
         .row-label { display: flex; align-items: center; gap: 10px; }
-        .row-icon { width: 28px; height: 28px; border-radius: 8px; background: #1E1E24; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
-        .row-value { font-size: 12px; color: #71717A; font-weight: 500; }
+        .row-sub { display: block; font-size: 12px; font-weight: 500; color: #71717A; margin-top: 2px; }
+        .row-icon { width: 28px; height: 28px; border-radius: 8px; background: #1E1E24; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .row-value { font-size: 13px; color: #71717A; font-weight: 500; }
         .toggle { width: 40px; height: 24px; border-radius: 12px; background: #27272A; position: relative; transition: background 0.2s ease; flex-shrink: 0; }
         .toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #71717A; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease; }
         .toggle.on { background: rgba(0, 255, 133, 0.25); }

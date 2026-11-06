@@ -25,3 +25,20 @@ function recordDailySnapshot() {
     else list.push(snapshot);
     saveData();
 }
+
+// The daily summary: once a day, when the app opens, a short message with how your net worth
+// changed since the last record. Compares like-for-like, so a new bank doesn't count as a gain.
+// (Setting: "Daily summary" on the Account screen. Real push notifications need a server.)
+function showDailySummary() {
+    const today = localISODate(new Date());
+    if (!USER_SETTINGS.notifications || SAVED.lastSummaryDate === today || !ACCOUNTS.length) return;
+    const { records } = getRecordsInWindow('All Time');
+    if (records.length < 2) return;
+    const latest = records[records.length - 1], previous = records[records.length - 2];
+    const kept = accountsInBoth(previous, latest);
+    const from = getRecordTotal(previous, activeCurrency, kept), to = getRecordTotal(latest, activeCurrency, kept);
+    if (from === null || to === null || to === from) return;
+    SAVED.lastSummaryDate = today;
+    saveData();
+    showToast('Net worth ' + (to > from ? 'up ' : 'down ') + CURRENCY_META[activeCurrency].symbol + formatMoney(Math.abs(to - from)) + ' since ' + formatGraphDate(previous.t, true));
+}

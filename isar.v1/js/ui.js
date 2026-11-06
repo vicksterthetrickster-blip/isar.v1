@@ -33,7 +33,8 @@ function initDismissMenus() {
 const SCREEN_CLOSERS = {
     'account-screen': () => closeAccount(),
     'perf-screen': () => closePerformance(),
-    'profile-screen': () => closeProfile()
+    'profile-screen': () => closeProfile(),
+    'info-screen': () => closeInfoScreen()
 };
 
 // Watches the screens: whenever one opens or closes, the app behind it slides aside or back
@@ -103,11 +104,11 @@ function showConfirmDialog(title, message, confirmLabel, onConfirm) {
     document.getElementById('modal-content-box').innerHTML =
         '<div>' +
             '<h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">' + escapeHTML(title) + '</h3>' +
-            '<p style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">' + escapeHTML(message) + '</p>' +
+            '<p style="font-size: 13px; color: #A1A1AA; line-height: 1.4;">' + escapeHTML(message) + '</p>' +
         '</div>' +
         '<div style="display: flex; gap: 10px;">' +
-            '<button onclick="cancelConfirmDialog()" class="interactive-btn" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 13px; font-weight: 600;">Cancel</button>' +
-            '<button onclick="acceptConfirmDialog()" class="interactive-btn" style="flex: 1; background: #FF4D6D; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 13px; font-weight: 700;">' + escapeHTML(confirmLabel) + '</button>' +
+            '<button onclick="cancelConfirmDialog()" class="interactive-btn" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; font-weight: 600;">Cancel</button>' +
+            '<button onclick="acceptConfirmDialog()" class="interactive-btn" style="flex: 1; background: #FF4D6D; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 14px; font-weight: 700;">' + escapeHTML(confirmLabel) + '</button>' +
         '</div>';
     document.getElementById('secure-modal').style.display = 'flex';
 }
@@ -122,4 +123,18 @@ function acceptConfirmDialog() {
     pendingConfirm = null;
     closeModalAndReset();
     if (action) action();
+}
+
+// --- Short message ---
+// Slides in at the top for a few seconds, e.g. to confirm that something was saved.
+const TOAST_MS = 3200;
+let toastTimer = null;
+
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.innerText = message;
+    toast.hidden = false;
+    restartAnimation(toast, 'show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, TOAST_MS);
 }

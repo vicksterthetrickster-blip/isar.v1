@@ -31,8 +31,12 @@ function saveLogoCache() {
 // The website of a bank or account: its own `domain`, or the matching bank in topBanks.
 function logoDomainFor(item) {
     if (item.domain) return item.domain;
-    const bank = topBanks.find(b => b.name === (item.bankName || item.name));
+    const bank = bankForIcon(item);
     return bank ? bank.domain : null;
+}
+
+function bankForIcon(item) {
+    return topBanks.find(b => b.name === (item.bankName || item.name));
 }
 
 // True if a colour is so light that an off-white logo wouldn't show up on it.
@@ -45,14 +49,18 @@ function isLightColor(hex) {
 }
 
 // The icon for a bank or account (anything with name + color, and optionally domain / bankName).
+// A bank with a `monogram` (no logo of its own) uses those letters and its own colour.
 function bankIconHTML(item, size) {
-    const domain = logoDomainFor(item);
-    const light = isLightColor(item.color);
-    const letter = escapeHTML(Array.from(item.name || '?')[0].toUpperCase());
+    const bank = bankForIcon(item);
+    const monogram = bank && bank.monogram;
+    const color = monogram ? bank.color : item.color;
+    const domain = monogram ? null : logoDomainFor(item);
+    const light = isLightColor(color);
+    const letter = monogram || escapeHTML(Array.from(item.name || '?')[0].toUpperCase());
     const logo = domain && logoCache[domain];
     if (domain && !logo) requestLogo(domain);
     return '<div class="bank-icon' + (light ? ' light' : '') + '"' + (domain ? ' data-logo-domain="' + escapeHTML(domain) + '"' : '') +
-        ' style="width: ' + size + 'px; height: ' + size + 'px; border-radius: ' + Math.round(size * 0.3) + 'px; background: ' + item.color + '; font-size: ' + Math.round(size * 0.42) + 'px;">' +
+        ' style="width: ' + size + 'px; height: ' + size + 'px; border-radius: ' + Math.round(size * 0.3) + 'px; background: ' + color + '; font-size: ' + Math.round(size * (monogram ? 0.34 : 0.42)) + 'px;">' +
         (logo ? '<img src="' + logo + '" alt="">' : letter) +
     '</div>';
 }
