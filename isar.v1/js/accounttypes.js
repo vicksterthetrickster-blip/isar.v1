@@ -112,28 +112,11 @@ function addManualAccount(kindId, name, amount, currency, linkedTo) {
     refreshAfterAccountChange();
 }
 
-// --- The Add tab: pick a group first, and the tab changes to suit it ---
-let addGroup = 'cash';
+// --- The Add tab: search everything first, then add assets and debts by hand further down ---
 let manualFormKind = null;
 
-function setAddGroup(id) {
-    addGroup = id;
-    closeAllMenus();
-    document.getElementById('bank-search').value = '';
-    renderConnectTab();
-}
-
-function renderAddGroups() {
-    document.getElementById('add-groups').innerHTML = ACCOUNT_GROUPS.map(g =>
-        '<button class="interactive-btn tx-filter' + (g.id === addGroup ? ' active' : '') + '" onclick="setAddGroup(\'' + g.id + '\')">' + g.label + '</button>'
-    ).join('');
-    const searching = addGroup === 'cash' || addGroup === 'investments';
-    document.getElementById('add-search').hidden = !searching;
-    document.getElementById('bank-search').placeholder = addGroup === 'investments' ? 'Search brokers and crypto...' : 'Search banks...';
-
-    const kinds = Object.keys(MANUAL_KINDS).filter(id => MANUAL_KINDS[id].group === addGroup);
-    document.getElementById('add-manual-title').innerText = searching ? 'Or add by hand' : 'What would you like to add?';
-    document.getElementById('add-manual-list').innerHTML = kinds.map(id => {
+function manualKindsHTML(kinds) {
+    return kinds.map(id => {
         const kind = MANUAL_KINDS[id];
         return '<button class="setup-item" onclick="openManualForm(\'' + id + '\')">' +
             bankIconHTML({ name: kind.label, color: kind.color, kind: id }, 32) +
@@ -141,6 +124,13 @@ function renderAddGroups() {
             '<span class="setup-add">Add</span>' +
         '</button>';
     }).join('');
+}
+
+// Cash at home and retirement funds sit with the assets here, as things you add by hand.
+function renderManualLists() {
+    const ids = Object.keys(MANUAL_KINDS);
+    document.getElementById('add-assets-list').innerHTML = manualKindsHTML(ids.filter(id => MANUAL_KINDS[id].group !== 'debts'));
+    document.getElementById('add-debts-list').innerHTML = manualKindsHTML(ids.filter(id => MANUAL_KINDS[id].group === 'debts'));
 }
 
 function openManualForm(kindId) {

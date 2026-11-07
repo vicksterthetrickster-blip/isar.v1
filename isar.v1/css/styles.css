@@ -309,8 +309,8 @@
                  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6); }
         .toast.show { animation: toastInOut 3.2s ease forwards; }
 
-        /* Globe tab. touch-action: pan-y lets a finger drag sideways to spin while up/down still scrolls. */
-        .globe-canvas { display: block; width: 100%; max-width: 360px; aspect-ratio: 1; margin: -8px auto; touch-action: pan-y; cursor: grab; }
+        /* Globe tab. touch-action: none gives the globe every drag on it, in any direction. */
+        .globe-canvas { display: block; width: 100%; max-width: 360px; aspect-ratio: 1; margin: -8px auto; touch-action: none; cursor: grab; }
         .globe-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #121216; border: 1px solid #1E1E24; border-radius: 14px;
                      padding: 11px 14px; color: #fff; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.12s; }
         .globe-row:active { transform: scale(0.98); background: #18181B; }

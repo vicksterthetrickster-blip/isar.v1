@@ -21,12 +21,16 @@ const GLOBE_SPIN_PER_SECOND = 5;        // degrees, while nothing is selected
 const GLOBE_DRAG_SPEED = 0.4;           // degrees per pixel dragged
 const GLOBE_DEFAULT_TILT = 18;          // degrees: shows a little more of the northern hemisphere
 const GLOBE_TAP_RADIUS = 26;            // how close a tap must be to a marker, in pixels
+const GLOBE_DRAG_START = 5;             // pixels a finger must move before a tap counts as a drag
+const GLOBE_MAX_TILT = 75;              // degrees: stops the globe being turned upside down
+const GLOBE_TURN_TIME = 140;            // ms: how quickly it eases towards a selected place
+const GLOBE_LABEL_CLOSE = 12;           // degrees: places closer than this share space, so one label goes below
 
 let globeDots = null;                   // land dots as points on a unit sphere (built on first use)
 let globeSpin = 0, globeTilt = GLOBE_DEFAULT_TILT;       // the point facing you: longitude, latitude
 let globeTarget = null;                 // { spin, tilt } the globe is easing towards
 let globeSelected = null;               // currency code of the selected marker
-let globeDragX = null, globeDragged = false;
+let globeDrag = null;                   // { x, y, startX, startY, moved } while a finger is down
 let globeFrame = null, globeLastTime = 0;
 let exposureCurrency = null, exposureMove = -10;
 
@@ -150,13 +154,13 @@ function drawGlobe(time) {
     });
 
     // A glowing marker per currency: bigger when more of your money is there
-    const labels = [];
-    holdings.forEach(holding => {
+    holdings.forEach((holding, order) => {
         const place = CURRENCY_HOMES[holding.code];
         const p = rotateGlobePoint(toSpherePoint(place[0], place[1]));
         if (p.z <= 0) return;
         const pos = screen(p), selected = globeSelected === holding.code;
         const dot = 3 + 8 * Math.sqrt(holding.share);
+        ctx.globalAlpha = Math.min(1, p.z / 0.15);      // fades at the edge instead of popping out of view
         ctx.fillStyle = 'rgba(0, 255, 133, 0.2)';
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, dot * 1.9 + Math.sin(time / 500) * 1.2, 0, Math.PI * 2);
@@ -175,13 +179,25 @@ function drawGlobe(time) {
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '700 12px Inter, system-ui, -apple-system, sans-serif';
         ctx.textAlign = 'center';
-        // Above the marker, or below it if that would overlap a nearby label (e.g. EUR and GBP)
-        const above = pos.y - dot - 7;
-        const crowded = labels.some(l => Math.abs(l.x - pos.x) < 34 && Math.abs(l.y - above) < 14);
-        const labelY = crowded ? pos.y + dot + 16 : above;
-        labels.push({ x: pos.x, y: labelY });
-        ctx.fillText(holding.code, pos.x, labelY);
+        // Above the marker, or below it if it's close to an earlier place (e.g. GBP next to EUR).
+        // Decided from the map, not the screen, so labels don't flip as the globe turns.
+        const crowded = holdings.slice(0, order).some(other => {
+            const near = CURRENCY_HOMES[other.code];
+            return Math.hypot(near[0] - place[0], near[1] - place[1]) < GLOBE_LABEL_CLOSE;
+        });
+        ctx.fillText(holding.code, pos.x, crowded ? pos.y + dot + 16 : pos.y - dot - 7);
+        ctx.globalAlpha = 1;
     });
+}
+
+// Keeps an angle between 0 and 360.
+function wrapDegrees(angle) {
+    return ((angle % 360) + 360) % 360;
+}
+
+// A turn as the shortest way round: between -180 and 180 degrees.
+function shortestTurn(angle) {
+    return wrapDegrees(angle + 180) - 180;
 }
 
 function globeLoop(time) {
@@ -189,12 +205,14 @@ function globeLoop(time) {
     globeLastTime = time;
     const stayStill = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (globeTarget) {
-        const spinGap = ((globeTarget.spin - globeSpin + 540) % 360) - 180, tiltGap = globeTarget.tilt - globeTilt;
-        globeSpin += spinGap * 0.09;
-        globeTilt += tiltGap * 0.09;
-        if (Math.abs(spinGap) < 0.1 && Math.abs(tiltGap) < 0.1) globeTarget = null;
-    } else if (globeDragX === null && !globeSelected && !stayStill) {
-        globeSpin = (globeSpin + GLOBE_SPIN_PER_SECOND * elapsed / 1000) % 360;
+        // The short way round, at the same speed on 60Hz and 120Hz screens
+        const spinGap = shortestTurn(globeTarget.spin - globeSpin), tiltGap = globeTarget.tilt - globeTilt;
+        const ease = 1 - Math.exp(-elapsed / GLOBE_TURN_TIME);
+        globeSpin = wrapDegrees(globeSpin + spinGap * ease);
+        globeTilt += tiltGap * ease;
+        if (Math.abs(spinGap) < 0.05 && Math.abs(tiltGap) < 0.05) globeTarget = null;
+    } else if (!globeDrag && !globeSelected && !stayStill) {
+        globeSpin = wrapDegrees(globeSpin + GLOBE_SPIN_PER_SECOND * elapsed / 1000);
     }
     drawGlobe(time);
     globeFrame = requestAnimationFrame(globeLoop);
@@ -216,28 +234,38 @@ function selectGlobeCurrency(code) {
     globeSelected = globeSelected === code ? null : code;
     if (globeSelected) {
         const place = CURRENCY_HOMES[code];
-        globeTarget = { spin: place[1], tilt: Math.max(-35, Math.min(35, place[0])) };
+        globeTarget = { spin: wrapDegrees(place[1]), tilt: Math.max(-GLOBE_MAX_TILT, Math.min(GLOBE_MAX_TILT, place[0])) };
     } else {
         globeTarget = { spin: globeSpin, tilt: GLOBE_DEFAULT_TILT };
     }
-    renderGlobeTab();
+    // Only the highlight changes: rebuilding the list would destroy the row being pressed
+    document.querySelectorAll('.globe-row').forEach(row => row.classList.toggle('selected', row.dataset.code === globeSelected));
 }
 
-// Dragging sideways spins the globe; dragging up and down still scrolls the page.
-// A tap that didn't move selects the marker under it.
+// Dragging turns the globe in any direction. Because a finger on the globe can't also scroll,
+// the page scrolls from anywhere else. A tap that didn't move selects the marker under it.
 function initGlobe() {
     const canvas = document.getElementById('globe-canvas');
-    canvas.addEventListener('pointerdown', e => { globeDragX = e.clientX; globeDragged = false; globeTarget = null; });
+    canvas.addEventListener('pointerdown', e => {
+        globeDrag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false };
+        canvas.setPointerCapture(e.pointerId);          // keeps the drag going if the finger leaves the globe
+    });
     canvas.addEventListener('pointermove', e => {
-        if (globeDragX === null) return;
-        const dx = e.clientX - globeDragX;
-        if (Math.abs(dx) > 2) globeDragged = true;
-        globeSpin = (globeSpin - dx * GLOBE_DRAG_SPEED + 360) % 360;
-        globeDragX = e.clientX;
+        if (!globeDrag) return;
+        if (!globeDrag.moved) {
+            if (Math.hypot(e.clientX - globeDrag.startX, e.clientY - globeDrag.startY) < GLOBE_DRAG_START) return;
+            globeDrag.moved = true;
+            globeTarget = null;                         // a real drag takes over from any turn in progress
+        }
+        globeSpin = wrapDegrees(globeSpin - (e.clientX - globeDrag.x) * GLOBE_DRAG_SPEED);
+        globeTilt = Math.max(-GLOBE_MAX_TILT, Math.min(GLOBE_MAX_TILT, globeTilt + (e.clientY - globeDrag.y) * GLOBE_DRAG_SPEED));
+        globeDrag.x = e.clientX;
+        globeDrag.y = e.clientY;
     });
     canvas.addEventListener('pointerup', e => {
-        globeDragX = null;
-        if (globeDragged) return;
+        const tapped = globeDrag && !globeDrag.moved;
+        globeDrag = null;
+        if (!tapped) return;
         const box = canvas.getBoundingClientRect(), size = box.width;
         const tapX = e.clientX - box.left, tapY = e.clientY - box.top;
         let nearest = null, nearestGap = GLOBE_TAP_RADIUS;
@@ -250,7 +278,7 @@ function initGlobe() {
         });
         if (nearest) selectGlobeCurrency(nearest);
     });
-    canvas.addEventListener('pointercancel', () => { globeDragX = null; });
+    canvas.addEventListener('pointercancel', () => { globeDrag = null; });
 }
 
 // --- Under the globe: the list of places, and the currency move calculator ---
@@ -266,7 +294,7 @@ function renderGlobeTab() {
           (debts ? ' Debts of ' + formatAmount(Math.abs(debts), activeCurrency, true) + ' aren\'t included here.' : '');
     document.getElementById('globe-list').innerHTML = holdings.map(holding => {
         const names = holding.accounts.map(a => escapeHTML(a.name)).join(', ');
-        return '<button class="globe-row' + (globeSelected === holding.code ? ' selected' : '') + '" onclick="selectGlobeCurrency(\'' + holding.code + '\')">' +
+        return '<button class="globe-row' + (globeSelected === holding.code ? ' selected' : '') + '" data-code="' + holding.code + '" onclick="selectGlobeCurrency(\'' + holding.code + '\')">' +
             '<span class="globe-flag">' + CURRENCY_META[holding.code].flag + '</span>' +
             '<span class="globe-place">' + CURRENCY_HOMES[holding.code][2] + '<small>' + names + '</small>' +
                 '<span class="globe-bar"><span style="width: ' + (holding.share * 100).toFixed(1) + '%;"></span></span>' +

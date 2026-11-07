@@ -43,7 +43,7 @@ function filterBanks() {
         return;
     }
 
-    const filtered = searchBanks(query).filter(b => bankGroup(b) === addGroup);
+    const filtered = searchBanks(query);
 
     if (filtered.length === 0) {
         resultsBox.innerHTML = '<div style="padding: 12px 14px; font-size: 13px; color: #71717A;">Nothing matches your search</div>';
@@ -64,7 +64,7 @@ function filterBanks() {
     resultsBox.style.display = 'block';
 }
 
-// Banks matching a (lower-case) search, best match first. Used by the Connect tab and setup.
+// Banks, brokers and exchanges matching a (lower-case) search, best match first.
 function searchBanks(query) {
     return topBanks
         .map(b => ({ bank: b, rank: bankMatchRank(b, query) }))
@@ -122,8 +122,8 @@ function escapeHTML(str) {
 }
 
 function renderConnectTab() {
-    renderAddGroups();
-    const linked = ACCOUNTS.filter(a => a.userLinked && accountGroup(a) === addGroup);
+    renderManualLists();
+    const linked = ACCOUNTS.filter(a => a.userLinked);
     document.getElementById('linked-section').style.display = linked.length ? 'flex' : 'none';
     document.getElementById('linked-list').innerHTML = linked.map(a =>
         '<div class="account-row" style="margin-bottom: 0;">' +
@@ -136,8 +136,7 @@ function renderConnectTab() {
         '</div>'
     ).join('');
 
-    const suggestions = addGroup === 'cash' ? suggestedBanksFor(activeCurrency)
-        : addGroup === 'investments' ? suggestedInvestmentsFor(activeCurrency) : [];
+    const suggestions = suggestedBanksFor(activeCurrency, 3).concat(suggestedInvestmentsFor(activeCurrency).slice(0, 2));
     document.getElementById('suggested-section').style.display = suggestions.length ? 'flex' : 'none';
     document.getElementById('connect-container').innerHTML = suggestions.map(b =>
         '<div class="account-row" style="margin-bottom: 0;">' +

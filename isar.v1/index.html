@@ -159,10 +159,9 @@
             <!-- TAB 4: CONNECT (Top 40 Banks Live Search & Apple-Style Secure Flow) -->
             <div id="panel-connect" class="tab-panel">
                 <span style="font-size: 16px; font-weight: 700; color: #fff;">Add to Isar</span>
-                <div id="add-groups" style="display: flex; gap: 6px;"></div>
 
-                <!-- Search Box (cash and investments only) -->
-                <div id="add-search" style="position: relative;">
+                <!-- Search: banks, brokers and crypto exchanges all together -->
+                <div style="position: relative;">
                     <input type="text" id="bank-search" oninput="filterBanks()" placeholder="Search banks, brokers and crypto..." style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px 14px; color: #fff; font-size: 14px; outline: none; width: 100%;">
                     <div id="bank-results" style="display: none; position: absolute; top: 48px; left: 0; right: 0; background: #18181B; border: 1px solid #27272A; border-radius: 12px; max-height: 220px; overflow-y: auto; z-index: 30; box-shadow: 0 15px 30px rgba(0,0,0,0.8);"></div>
                 </div>
@@ -179,10 +178,14 @@
                     <div id="connect-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
                 </div>
 
-                <!-- Things added by hand: property, debts, retirement funds... (accounttypes.js) -->
+                <!-- Things added by hand (accounttypes.js) -->
                 <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                    <span id="add-manual-title" style="font-size: 13px; font-weight: 600; color: #A1A1AA;"></span>
-                    <div id="add-manual-list" class="setup-list"></div>
+                    <span style="font-size: 13px; font-weight: 600; color: #A1A1AA;">Add an asset by hand</span>
+                    <div id="add-assets-list" class="setup-list"></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    <span style="font-size: 13px; font-weight: 600; color: #A1A1AA;">Add a debt by hand</span>
+                    <div id="add-debts-list" class="setup-list"></div>
                 </div>
 
                 <button class="interactive-btn" onclick="resetSavedData()" style="margin-top: 12px; background: transparent; border: none; color: #71717A; font-size: 12px; text-decoration: underline; cursor: pointer; align-self: center;">Clear saved data</button>

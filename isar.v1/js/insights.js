@@ -11,12 +11,18 @@ function daysBetween(a, b) {
     return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
 }
 
+// True if an account has real or sample transactions. Value and balance updates you typed in
+// aren't money moving, so Insights ignores them.
+function hasTransactions(account) {
+    return Array.isArray(account.transactions) || usesMockTransactions(account);
+}
+
 // Everything each account cost over the window, valued in the display currency.
 function getLeakReport() {
     const since = new Date();
     since.setDate(since.getDate() - LEAK_WINDOW_DAYS);
     const start = localISODate(since);
-    const accounts = ACCOUNTS.map(account => {
+    const accounts = ACCOUNTS.filter(hasTransactions).map(account => {
         const entry = { account: account, hidden: 0, fees: 0, foreignCount: 0, fairTotal: 0, costTotal: 0 };
         getAccountTransactions(account).filter(t => t.date >= start && !t.opening).forEach(t => {
             const fx = getFxCost(t, account);
@@ -39,7 +45,7 @@ function getLeakReport() {
 // Payments that repeat about monthly for about the same amount, like subscriptions and bills.
 function getRecurringPayments() {
     const found = [];
-    ACCOUNTS.forEach(account => {
+    ACCOUNTS.filter(hasTransactions).forEach(account => {
         const groups = {};
         getAccountTransactions(account).filter(t => t.amount < 0 && !t.opening && !t.original).forEach(t => {
             (groups[t.description] = groups[t.description] || []).push(t);
