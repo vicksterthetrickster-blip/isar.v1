@@ -8,7 +8,8 @@
 const MENU_TRIGGERS = [
     ['curr-menu', 'curr-btn'],
     ['acct-curr-menu', 'acct-curr-btn'],
-    ['bank-results', 'bank-search']
+    ['bank-results', 'bank-search'],
+    ['leak-menu', 'leak-btn']
 ];
 
 function closeAllMenus() {

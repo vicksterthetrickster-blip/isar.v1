@@ -330,7 +330,11 @@
         .leak-hero { background: linear-gradient(160deg, rgba(255, 77, 109, 0.16), #121216 62%); border-color: rgba(255, 77, 109, 0.28); }
         .leak-box { flex-direction: row; align-items: center; gap: 12px; padding: 18px 20px; cursor: pointer; }
         .leak-box .leak-total { font-size: 30px; }
-        .leak-periods { display: flex; gap: 4px; margin-bottom: 8px; }
+        /* Timeline picker: the same pill and menu as the currency picker on the net worth card */
+        .leak-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; color: #A1A1AA; margin-bottom: 4px; }
+        .leak-period-btn { flex-shrink: 0; background: #18181B; border: 1px solid #27272A; border-radius: 20px; padding: 7px 13px; color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .leak-period-btn i { font-size: 10px; font-style: normal; color: #00FF85; }
+        #leak-menu { top: 60px; right: 16px; width: 200px; }
         .insight-row.selected { border-color: #FF4D6D; }
         .leak-title { font-size: 13px; font-weight: 700; color: #FF4D6D; text-transform: uppercase; letter-spacing: 0.5px; }
         .leak-total { font-size: 36px; font-weight: 800; letter-spacing: -1px; }

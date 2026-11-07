@@ -2,7 +2,7 @@
 // over a period you choose, and regular payments are spotted from your transactions.
 // It only reads getAccountTransactions(), so it works on real bank data without changes.
 
-const LEAK_PERIODS = [['1W', 7], ['30D', 30], ['60D', 60], ['90D', 90], ['6M', 182], ['1Y', 365], ['2Y', 730]];
+const LEAK_PERIODS = [['week', 7], ['30 days', 30], ['60 days', 60], ['90 days', 90], ['6 months', 182], ['year', 365], ['2 years', 730]];
 const RECURRING_LOOKBACK_DAYS = 100;    // only recent payments count, so cancelled ones drop off
 const RECURRING_MIN_TIMES = 3;          // seen this many times...
 const RECURRING_GAP_DAYS = [25, 35];    // ...about a month apart...
@@ -129,9 +129,16 @@ function renderInsightsTab() {
 }
 
 // "last 90 days", "last year"...
-function leakPeriodLabel() {
-    const period = LEAK_PERIODS.find(p => p[1] === leakDays)[0];
-    return 'last ' + period.replace('1W', 'week').replace('1Y', 'year').replace('2Y', '2 years').replace('D', ' days').replace('M', ' months');
+function leakPeriodLabel(days) {
+    return 'last ' + LEAK_PERIODS.find(p => p[1] === (days || leakDays))[0];
+}
+
+function capitalise(text) {
+    return text[0].toUpperCase() + text.slice(1);
+}
+
+function toggleLeakMenu() {
+    document.getElementById('leak-menu').classList.toggle('open');
 }
 
 // --- The Leak Finder page: period, chart, banks and the transactions themselves ---
@@ -175,7 +182,7 @@ function openLeakPage() {
     const items = report.items.filter(i => !leakListAccount || i.account.id === leakListAccount);
 
     const periods = LEAK_PERIODS.map(p =>
-        '<button class="interactive-btn tx-filter' + (p[1] === leakDays ? ' active' : '') + '" onclick="setLeakDays(' + p[1] + ')">' + p[0] + '</button>'
+        '<button class="dropdown-item' + (p[1] === leakDays ? ' active' : '') + '" onclick="setLeakDays(' + p[1] + ')">' + capitalise(leakPeriodLabel(p[1])) + '</button>'
     ).join('');
     const yearly = !report.total ? 'None found in this period.' : leakDays === 365 ? ''
         : 'That\'s about ' + symbol + Math.round(report.total * 365 / leakDays).toLocaleString('en-US') + ' a year at this rate.';
@@ -189,8 +196,11 @@ function openLeakPage() {
 
     openInfoScreen('The Leak Finder',
         '<div class="card leak-hero" style="padding: 16px; gap: 4px;">' +
-            '<div class="leak-periods">' + periods + '</div>' +
-            '<div style="font-size: 14px; color: #A1A1AA;">Lost to hidden exchange costs, ' + leakPeriodLabel() + '</div>' +
+            '<div class="leak-head">' +
+                '<span>Lost to hidden exchange costs</span>' +
+                '<button id="leak-btn" class="interactive-btn leak-period-btn" onclick="toggleLeakMenu()">' + capitalise(leakPeriodLabel()) + ' <i>▼</i></button>' +
+            '</div>' +
+            '<div id="leak-menu" class="dropdown-menu">' + periods + '</div>' +
             '<div class="leak-total">' + (report.total ? '≈ ' : '') + money(report.total) + '</div>' +
             '<div style="font-size: 14px; color: #fff;">' + yearly + '</div>' +
             leakChartHTML(getLeakBars(leakDays, report.items)) +
