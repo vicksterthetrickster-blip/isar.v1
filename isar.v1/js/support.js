@@ -7,6 +7,7 @@ const HELP_TOPICS = [
     ['Why is my graph empty?', 'Your graph builds up one day at a time, so it needs at least two days of balances to draw a line.'],
     ['Why can\'t I see my transactions?', 'Isar can\'t read your bank yet. For now, the Transactions list on your own accounts shows the balance updates you\'ve entered. Individual transactions will appear once banks are connected.'],
     ['How up to date are exchange rates?', 'Isar uses the European Central Bank\'s reference rates, which are published once each working day. It checks for new rates when it opens and every 5 minutes.'],
+    ['How does the Leak Finder work?', 'It adds up the hidden exchange cost of your foreign transactions over the period you pick. Tap it to change the period, see the graph and check each transaction.'],
     ['What is the hidden exchange cost?', 'When you spend in another currency, a bank can say there\'s no fee but give you a worse exchange rate. Isar compares what you were charged with the real rate that day, so you can see what it actually cost. It\'s an estimate, because rates move during the day.'],
     ['Why is growth different from my balance change?', 'Growth only compares accounts that existed at both the start and end of the period, so adding a new bank never counts as growth.'],
     ['Where is my data saved?', 'On this device only, inside the app. Removing the app from your home screen deletes it, and your account doesn\'t carry over to other devices yet.']

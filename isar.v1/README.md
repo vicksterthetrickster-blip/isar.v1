@@ -27,7 +27,7 @@ Open this folder in VS Code and start **Live Server** on `index.html`
 | `js/accounts.js` | Accounts tab and account detail screen |
 | `js/globe.js` | Globe tab: spinning dotted Earth, money by currency, "what if a currency moves" |
 | `js/globedata.js` | Where the land is on the globe (made once from Natural Earth map data) |
-| `js/insights.js` | Insights tab: the Leak Finder and regular payments |
+| `js/insights.js` | Insights tab: the Leak Finder (hidden exchange costs by period, chart, transaction list) and regular payments |
 | `js/connect.js` | Connect tab: bank search and linking (incl. the mock account history, `generateMockAccountHistory`) |
 | `js/profile.js` | Profile, settings, sign out |
 | `js/performance.js` | Performance screen |

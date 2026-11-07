@@ -129,21 +129,18 @@
 
             <!-- TAB 3: INSIGHTS (insights.js) -->
             <div id="panel-insights" class="tab-panel">
-                <div class="card leak-hero">
-                    <div class="leak-title">The Leak Finder</div>
-                    <div id="leak-empty" style="font-size: 14px; color: #A1A1AA; line-height: 1.45;">Nothing to show yet. The Leak Finder needs real transactions, so it starts working once your banks are connected.</div>
-                    <div id="leak-found" style="display: flex; flex-direction: column; gap: 4px;">
-                        <div style="font-size: 14px; color: #A1A1AA;">Quietly lost in the last 90 days</div>
-                        <div id="leak-total" class="leak-total"></div>
-                        <div id="leak-yearly" style="font-size: 14px; color: #fff;"></div>
-                        <div class="leak-split">
-                            <div><small>Hidden exchange costs</small><strong id="leak-hidden"></strong></div>
-                            <div><small>Bank fees</small><strong id="leak-fees"></strong></div>
+                <!-- Small Leak Finder box: tap it for the full page (insights.js) -->
+                <div class="card leak-hero leak-box" onclick="openLeakPage()">
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="leak-title">The Leak Finder</div>
+                        <div id="leak-empty" style="font-size: 14px; color: #A1A1AA; line-height: 1.45; margin-top: 6px;">Nothing to show yet. The Leak Finder needs real transactions, so it starts working once your banks are connected.</div>
+                        <div id="leak-summary">
+                            <div id="leak-total" class="leak-total"></div>
+                            <div id="leak-label" style="font-size: 13px; color: #A1A1AA;"></div>
                         </div>
                     </div>
+                    <span id="leak-chevron" style="font-size: 22px; color: #A1A1AA;">›</span>
                 </div>
-
-                <div id="leak-accounts"></div>
 
                 <div id="recurring-card" class="card" style="padding: 16px; gap: 6px;">
                     <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px;">

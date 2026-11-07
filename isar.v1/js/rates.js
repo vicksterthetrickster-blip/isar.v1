@@ -168,7 +168,7 @@ async function fetchLiveRates(manual) {
 // --- Past exchange rates, one set per working day (saved on this device) ---
 // Used to work out what a foreign transaction SHOULD have cost on the day it happened.
 const RATE_HISTORY_KEY = 'isar.rateHistory.v1';
-const RATE_HISTORY_DAYS = 92;
+const RATE_HISTORY_DAYS = 745;
 const rateHistory = loadRateHistory();                  // date -> { USD: 0.7, EUR: 0.6, ... }, 1 AUD = X
 let rateHistoryDates = Object.keys(rateHistory).sort(); // the dates above, oldest first
 
@@ -180,7 +180,9 @@ function loadRateHistory() {
 async function refreshRateHistory() {
     const start = new Date();
     start.setDate(start.getDate() - RATE_HISTORY_DAYS);
-    const from = rateHistoryDates[rateHistoryDates.length - 1] || localISODate(start);
+    // Fetch from the newest day we have, or from the very start if the older days are missing
+    const haveAllOlder = rateHistoryDates.length && rateHistoryDates[0] <= localISODate(new Date(start.getTime() + 7 * 864e5));
+    const from = haveAllOlder ? rateHistoryDates[rateHistoryDates.length - 1] : localISODate(start);
     const today = localISODate(new Date());
     if (from >= today) return;
     try {

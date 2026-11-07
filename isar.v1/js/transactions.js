@@ -13,7 +13,7 @@
 //   2. sample data: made-up transactions for the demo (generateMockTransactions)
 //   3. your own accounts: the balance updates you've entered, as there's no bank feed yet
 
-const TX_MOCK_DAYS = 90;                // how far back the made-up transactions go
+const TX_MOCK_DAYS = 730;               // how far back the made-up transactions go
 const TX_SUMMARY_DAYS = 30;             // the "money in / money out" totals cover this many days
 const TX_PAGE_SIZE = 15;                // rows shown before "Show more"
 const TX_FILTERS = [['all', 'All'], ['in', 'Money in'], ['out', 'Money out']];
@@ -338,13 +338,14 @@ function fxCostHTML(transaction, account) {
         '<p class="info-note">An estimate. The real rate is the European Central Bank\'s rate for ' + formatRateDate(fx.rateDate) + ', and rates move during the day.</p>';
 }
 
-function openTransaction(id) {
-    const account = ACCOUNTS.find(a => a.id === openAccountId);
+// Opens from an account's list by default; the Leak Finder passes its own account and way back.
+function openTransaction(id, accountId, back) {
+    const account = ACCOUNTS.find(a => a.id === (accountId || openAccountId));
     const transaction = account && getAccountTransactions(account).find(t => t.id === id);
     if (!transaction) return;
     const moneyIn = transaction.amount >= 0;
     const [year] = transaction.date.split('-');
-    const code = acctViewCurrency || account.currency;
+    const code = (!accountId && acctViewCurrency) || account.currency;
     const convertedRow = code === account.currency ? '' : infoRowHTML('In ' + code, '≈ ' + formatTransactionAmount(convertTransactionAmount(transaction.amount, account, code, transaction.date), code));
     openInfoScreen('Transaction',
         '<div class="tx-hero">' +
@@ -361,7 +362,7 @@ function openTransaction(id) {
             infoRowHTML('Account', account.name) +
         '</div>' +
         fxCostHTML(transaction, account) +
-        (usesMockTransactions(account) ? '<p class="info-note">Sample transaction for the demo.</p>' : ''));
+        (usesMockTransactions(account) ? '<p class="info-note">Sample transaction for the demo.</p>' : ''), back);
 }
 
 function refreshAccountTransactions() {

@@ -75,7 +75,11 @@ function toggleNotifications() {
 }
 
 // --- Second-level pages opened from the Account screen ---
-function openInfoScreen(title, html) {
+// `back` (optional) runs instead of closing, for a page reached from another page on this screen.
+let infoBackAction = null;
+
+function openInfoScreen(title, html, back) {
+    infoBackAction = back || null;
     document.getElementById('info-title').innerText = title;
     document.getElementById('info-content').innerHTML = html;
     document.getElementById('info-content').scrollTop = 0;
@@ -83,6 +87,7 @@ function openInfoScreen(title, html) {
 }
 
 function closeInfoScreen() {
+    if (infoBackAction) return infoBackAction();
     document.getElementById('info-screen').classList.remove('open');
 }
 

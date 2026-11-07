@@ -328,12 +328,24 @@
 
         /* Insights tab */
         .leak-hero { background: linear-gradient(160deg, rgba(255, 77, 109, 0.16), #121216 62%); border-color: rgba(255, 77, 109, 0.28); }
+        .leak-box { flex-direction: row; align-items: center; gap: 12px; padding: 18px 20px; cursor: pointer; }
+        .leak-box .leak-total { font-size: 30px; }
+        .leak-periods { display: flex; gap: 4px; margin-bottom: 8px; }
+        .insight-row.selected { border-color: #FF4D6D; }
         .leak-title { font-size: 13px; font-weight: 700; color: #FF4D6D; text-transform: uppercase; letter-spacing: 0.5px; }
         .leak-total { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
-        .leak-split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-        .leak-split > div { background: rgba(0, 0, 0, 0.28); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-        .leak-split small { font-size: 12px; color: #A1A1AA; font-weight: 600; }
-        .leak-split strong { font-size: 16px; font-weight: 800; }
+        /* Single series: thin bars with rounded tops on a shared baseline, 2px apart. Each whole column is the tap target. */
+        .leak-chart { display: flex; align-items: stretch; gap: 2px; height: 96px; margin-top: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+        .leak-bar { flex: 1; min-width: 0; display: flex; align-items: flex-end; background: transparent; border: none; padding: 0; cursor: pointer; }
+        .leak-bar span { display: block; width: 100%; background: #FF4D6D; border-radius: 4px 4px 0 0; opacity: 0.8; }
+        .leak-bar.selected span { opacity: 1; box-shadow: 0 0 0 1px #fff; }
+        .leak-axis { display: flex; justify-content: space-between; font-size: 12px; color: #71717A; margin-top: 4px; }
+        .leak-bar-value { font-size: 13px; color: #A1A1AA; text-align: center; margin: 6px 0; }
+        .leak-tx { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #1E1E24; cursor: pointer; }
+        .leak-tx:last-child { border-bottom: none; }
+        .leak-tx:active { background: #18181B; }
+        .leak-cost { flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 700; color: #FF4D6D; background: rgba(255, 77, 109, 0.1); border-radius: 8px; padding: 5px 8px; }
+        .leak-cost small { display: block; font-size: 12px; font-weight: 500; color: #A1A1AA; }
         .insight-row { justify-content: flex-start; gap: 12px; }
         .per-year { display: block; font-size: 12px; font-weight: 500; color: #71717A; text-align: right; }
 
