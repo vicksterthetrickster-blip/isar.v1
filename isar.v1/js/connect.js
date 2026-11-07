@@ -43,10 +43,10 @@ function filterBanks() {
         return;
     }
 
-    const filtered = searchBanks(query);
+    const filtered = searchBanks(query).filter(b => bankGroup(b) === addGroup);
 
     if (filtered.length === 0) {
-        resultsBox.innerHTML = '<div style="padding: 12px 14px; font-size: 13px; color: #71717A;">No banks match your search</div>';
+        resultsBox.innerHTML = '<div style="padding: 12px 14px; font-size: 13px; color: #71717A;">Nothing matches your search</div>';
         resultsBox.style.display = 'block';
         return;
     }
@@ -90,6 +90,16 @@ const BANKS_BY_CURRENCY = {
     SEK: ['Nordea'], NOK: ['Nordea'], DKK: ['Nordea']
 };
 const DEFAULT_SUGGESTED_BANKS = ['HSBC Holdings', 'JPMorgan Chase', 'Citigroup', 'Standard Chartered'];
+const INVESTMENTS_BY_CURRENCY = {
+    AUD: ['CommSec', 'Stake', 'Swyftx', 'Interactive Brokers'],
+    USD: ['Fidelity', 'Charles Schwab', 'Robinhood', 'Coinbase'],
+    GBP: ['Hargreaves Lansdown', 'Trading 212', 'eToro', 'Coinbase']
+};
+const DEFAULT_SUGGESTED_INVESTMENTS = ['Interactive Brokers', 'eToro', 'Coinbase', 'Binance'];
+
+function suggestedInvestmentsFor(code) {
+    return (INVESTMENTS_BY_CURRENCY[code] || DEFAULT_SUGGESTED_INVESTMENTS).filter(n => !isBankLinked(n)).map(findBank);
+}
 
 // Up to `limit` suggested banks for a currency that the user hasn't linked yet.
 function suggestedBanksFor(code, limit) {
@@ -112,7 +122,8 @@ function escapeHTML(str) {
 }
 
 function renderConnectTab() {
-    const linked = ACCOUNTS.filter(a => a.userLinked);
+    renderAddGroups();
+    const linked = ACCOUNTS.filter(a => a.userLinked && accountGroup(a) === addGroup);
     document.getElementById('linked-section').style.display = linked.length ? 'flex' : 'none';
     document.getElementById('linked-list').innerHTML = linked.map(a =>
         '<div class="account-row" style="margin-bottom: 0;">' +
@@ -125,7 +136,8 @@ function renderConnectTab() {
         '</div>'
     ).join('');
 
-    const suggestions = suggestedBanksFor(activeCurrency);
+    const suggestions = addGroup === 'cash' ? suggestedBanksFor(activeCurrency)
+        : addGroup === 'investments' ? suggestedInvestmentsFor(activeCurrency) : [];
     document.getElementById('suggested-section').style.display = suggestions.length ? 'flex' : 'none';
     document.getElementById('connect-container').innerHTML = suggestions.map(b =>
         '<div class="account-row" style="margin-bottom: 0;">' +
@@ -145,6 +157,7 @@ function refreshAfterAccountChange() {
     renderPortfolioValue();
     renderGraph();
     renderCurrencyMenu();
+    refreshActiveTab();
     document.getElementById('profile-linked-count').innerText = ACCOUNTS.length + ' accounts';
 }
 
@@ -152,7 +165,8 @@ function saveLinkedAccounts() {
     SAVED.linkedAccounts = ACCOUNTS.filter(a => a.userLinked).map(a => ({
         id: a.id, bankName: a.bankName, name: a.name, type: a.type,
         letter: a.letter, color: a.color, balance: a.balance, currency: a.currency,
-        addedDate: a.addedDate, history: a.history, historySource: a.historySource
+        addedDate: a.addedDate, history: a.history, historySource: a.historySource,
+        group: a.group, kind: a.kind, linkedTo: a.linkedTo
     }));
     saveData();
 }
@@ -177,6 +191,7 @@ function updateLinkedAccount(id, changes) {
         account.letter = Array.from(account.name)[0].toUpperCase();
     }
     if (typeof changes.type === 'string' && changes.type.trim()) account.type = changes.type.trim();
+    if (typeof changes.linkedTo === 'string') account.linkedTo = changes.linkedTo || undefined;
     if (typeof changes.balance === 'number' && isFinite(changes.balance)) {
         account.balance = changes.balance;
         const today = localISODate(new Date());

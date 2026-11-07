@@ -15,6 +15,25 @@ function switchTab(tabName, btnElement) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     btnElement.classList.add('active');
     content.scrollTop = 0;
+    refreshActiveTab();
+    updateGlobeRunning();
+}
+
+function isTabActive(tabName) {
+    return document.getElementById('panel-' + tabName).classList.contains('active');
+}
+
+// Globe and Insights add up every account, so they're only redrawn while they're on screen.
+function refreshActiveTab() {
+    if (isTabActive('globe')) renderGlobeTab();
+    if (isTabActive('insights')) renderInsightsTab();
+}
+
+// The globe only animates while it can be seen, which saves battery.
+function updateGlobeRunning() {
+    const covered = document.querySelector('.phone-frame').classList.contains('screen-open');
+    if (isTabActive('globe') && !covered) startGlobe();
+    else stopGlobe();
 }
 
 // Initialize instantly with fallback rates so the UI never shows a blank state,
@@ -33,6 +52,7 @@ function startApp() {
     initDismissMenus();
     initScreenTransitions();
     initSwipeBack();
+    initGlobe();
     refreshRateHistory();
     // The daily summary waits for live rates, so it compares real numbers.
     fetchLiveRates(false).then(() => { if (!needsSetup()) showDailySummary(); });

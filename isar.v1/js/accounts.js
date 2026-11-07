@@ -3,8 +3,13 @@
 // --- Render everything that shows an account balance from ACCOUNTS ---
 // Native-currency display of an account balance (symbol + amount + currency code).
 function formatAccountBalance(account) {
-    const meta = CURRENCY_META[account.currency];
-    return meta.symbol + account.balance.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ' + account.currency;
+    return formatAmount(account.balance, account.currency);
+}
+
+// "$5,300 AUD", with the minus sign before the symbol for debts: "−$5,300 AUD".
+function formatAmount(amount, code, wholeNumber) {
+    const digits = wholeNumber ? 0 : 2;
+    return (amount < 0 ? '−' : '') + CURRENCY_META[code].symbol + Math.abs(amount).toLocaleString('en-US', { maximumFractionDigits: digits }) + ' ' + code;
 }
 
 // "≈ $58,366 AUD": the balance in the currency chosen on the net worth card.
@@ -12,13 +17,13 @@ function formatAccountBalance(account) {
 function formatConvertedBalance(account) {
     if (account.currency === activeCurrency) return '';
     const value = convertFromBase(convertToBase(account.balance, account.currency), activeCurrency);
-    return '≈ ' + CURRENCY_META[activeCurrency].symbol + Math.round(value).toLocaleString('en-US') + ' ' + activeCurrency;
+    return '≈ ' + formatAmount(value, activeCurrency, true);
 }
 
-function accountRowHTML(account, extraStyle) {
+function accountRowHTML(account) {
     const converted = formatConvertedBalance(account);
-    return '<div class="account-row" onclick="openAccount(\'' + account.id + '\')"' + (extraStyle ? ' style="' + extraStyle + '"' : '') + '>' +
-        '<div style="display: flex; align-items: center; gap: 12px;">' +
+    return '<div class="account-row" onclick="openAccount(\'' + account.id + '\')">' +
+        '<div style="display: flex; align-items: center; gap: 12px; min-width: 0;">' +
             bankIconHTML(account, 36) +
             '<div><div style="font-size: 14px; font-weight: 600;">' + escapeHTML(account.name) + '</div>' +
             '<div style="font-size: 12px; color: #71717A;">' + escapeHTML(account.type) + '</div></div>' +
@@ -33,26 +38,24 @@ function accountRowHTML(account, extraStyle) {
     '</div>';
 }
 
-function accountCountLabel() {
-    return ACCOUNTS.length + ' accounts';
-}
-
-// Linked banks are listed first (newest on top), so a bank linked on the Connect tab
-// shows straight away instead of being folded behind the "+ N accounts" toggle.
+// Your own accounts are listed first in each group (newest on top), before any sample ones.
 function getAccountsInDisplayOrder() {
     const linked = ACCOUNTS.filter(a => a.userLinked).reverse();
     return linked.concat(ACCOUNTS.filter(a => !a.userLinked));
 }
 
-// Rows are redrawn on their own (not with the Transfer dropdowns) so changing
-// currency updates the converted amounts without resetting a dropdown selection.
+// Rows are redrawn on their own so changing
+// currency updates just the converted amounts.
+// One section per group (Cash, Investments, Assets, Debts) with a subtotal in the display currency.
 function renderAccountRows() {
     const ordered = getAccountsInDisplayOrder();
-    document.getElementById('visible-accounts').innerHTML = ordered.length
-        ? ordered.slice(0, VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a)).join('')
-        : '<div style="font-size: 13px; color: #71717A; text-align: center; padding: 16px 0;">No accounts yet. Add one on the Connect tab.</div>';
-    document.getElementById('extra-accounts').innerHTML =
-        ordered.slice(VISIBLE_ACCOUNT_COUNT).map(a => accountRowHTML(a, 'margin-bottom: 0;')).join('');
+    document.getElementById('account-groups').innerHTML = ACCOUNT_GROUPS.map(group => {
+        const list = ordered.filter(a => accountGroup(a) === group.id);
+        if (!list.length) return '';
+        const total = list.reduce((sum, a) => sum + convertFromBase(convertToBase(a.balance, a.currency), activeCurrency), 0);
+        return '<div class="group-head"><span>' + group.label + '</span><span>' + formatAmount(total, activeCurrency, true) + '</span></div>' +
+            list.map(a => accountRowHTML(a)).join('');
+    }).join('');
 }
 
 function renderAccounts() {
@@ -63,37 +66,15 @@ function renderAccounts() {
     document.getElementById('accounts-section').hidden = empty;
 
     renderAccountRows();
-    document.getElementById('toggle-text').innerText = accountCountLabel();
-
-    const optionsHTML = ACCOUNTS.map(a => '<option value="' + a.id + '">' + a.name + ' - ' + formatAccountBalance(a) + '</option>').join('');
-    const from = document.getElementById('transfer-from');
-    const to = document.getElementById('transfer-to');
-    from.innerHTML = optionsHTML;
-    to.innerHTML = optionsHTML;
-    from.selectedIndex = 0;
-    to.selectedIndex = Math.min(1, ACCOUNTS.length - 1);
 }
 
-function toggleAccounts() {
-    const extra = document.getElementById('extra-accounts');
-    const icon = document.getElementById('toggle-icon');
-    const text = document.getElementById('toggle-text');
-    if (extra.style.display === 'none' || extra.style.display === '') {
-        extra.style.display = 'flex';
-        icon.innerText = '−';
-        text.innerText = 'less';
-    } else {
-        extra.style.display = 'none';
-        icon.innerText = '+';
-        text.innerText = accountCountLabel();
-    }
-}
 
 // --- Account detail screen (opened by tapping an account row) ---
 function refreshAccountViews() {
     renderAccountRows();
     if (openAccountId) renderAccountDetail();
     if (performanceOpen) renderPerformanceScreen();
+    refreshActiveTab();
 }
 
 function openAccount(id) {
@@ -132,9 +113,7 @@ function renderAccountTimeframes() {
 
 // "$5,300.00 EUR": an account's balance converted into any currency, using live rates.
 function formatAccountBalanceIn(account, code) {
-    const meta = CURRENCY_META[code];
-    const value = convertFromBase(convertToBase(account.balance, account.currency), code);
-    return meta.symbol + value.toLocaleString('en-US', { maximumFractionDigits: 2 }) + ' ' + code;
+    return formatAmount(convertFromBase(convertToBase(account.balance, account.currency), code), code);
 }
 
 function toggleAcctCurrencyMenu() {
@@ -151,7 +130,7 @@ function renderAcctCurrencyMenu(account) {
         const activeClass = code === acctViewCurrency ? ' active' : '';
         return `<button class="dropdown-item${activeClass}" onclick="setAcctViewCurrency('${code}')">` +
                `<span>${meta.flag} ${code}</span>` +
-               `<span style="color:#71717A">${meta.symbol}${Math.round(value).toLocaleString('en-US')}</span>` +
+               `<span style="color:#71717A">${value < 0 ? '−' : ''}${meta.symbol}${Math.abs(Math.round(value)).toLocaleString('en-US')}</span>` +
                `</button>`;
     }).join('');
 }
@@ -185,7 +164,7 @@ function renderAccountDetail() {
 
     // Balance history for this account only, valued in the chosen currency
     const { points, clipped } = getAccountSeries(account, code, accountTimeframe);
-    document.getElementById('acct-graph-title').innerText = graphTitle('Balance', accountTimeframe, clipped, points);
+    document.getElementById('acct-graph-title').innerText = graphTitle(isDebt(account) ? 'Amount owed' : isValuedByHand(account) ? 'Value' : 'Balance', accountTimeframe, clipped, points);
     document.getElementById('acct-graph-note').innerText = account.currency === code
         ? 'Shown in ' + code
         : 'Shown in ' + code + ', using each date\'s exchange rate';
@@ -195,11 +174,25 @@ function renderAccountDetail() {
     renderAccountTransactions(account);
 
     // Details
-    const totalAUD = getPortfolioTotalAUD();
-    const share = totalAUD > 0 ? convertToBase(account.balance, account.currency) / totalAUD * 100 : null;
+    const debt = isDebt(account);
+    const assetsAUD = getAssetsTotalAUD();
+    const share = assetsAUD > 0 ? convertToBase(account.balance, account.currency) / assetsAUD * 100 : null;
     document.getElementById('acct-detail-type').innerText = account.type;
     document.getElementById('acct-detail-currency').innerText = account.currency + ' ' + CURRENCY_META[account.currency].flag;
     document.getElementById('acct-detail-share').innerText = share === null ? '—' : share.toFixed(1) + '%';
+    document.getElementById('acct-share-row').hidden = debt;
+
+    // A property shows its equity (value minus linked debts); a linked debt shows its property.
+    const equity = getEquity(account);
+    const linkedAsset = ACCOUNTS.find(a => a.id === account.linkedTo);
+    document.getElementById('acct-link-row').hidden = equity === null && !linkedAsset;
+    if (equity !== null) {
+        document.getElementById('acct-link-label').innerText = 'Your equity';
+        document.getElementById('acct-link-value').innerText = formatAmount(equity, account.currency, true);
+    } else if (linkedAsset) {
+        document.getElementById('acct-link-label').innerText = 'Linked to';
+        document.getElementById('acct-link-value').innerText = linkedAsset.name;
+    }
 }
 
 // --- Your own accounts: update balance, edit, remove ---
@@ -212,8 +205,9 @@ function renderAcctActions(account) {
         el.innerHTML = '<div style="font-size: 12px; color: #71717A; text-align: center;">Sample account (read-only). Turn off "Show sample data" in Account settings to use only your own accounts.</div>';
         return;
     }
+    const updateLabel = isDebt(account) ? 'Update amount' : isValuedByHand(account) ? 'Update value' : 'Update balance';
     el.innerHTML =
-        '<button class="interactive-btn" onclick="openUpdateBalance()" style="' + ACCT_BTN_STYLE + 'background: #00FF85; color: #000; border: none;">Update balance</button>' +
+        '<button class="interactive-btn" onclick="openUpdateBalance()" style="' + ACCT_BTN_STYLE + 'background: #00FF85; color: #000; border: none;">' + updateLabel + '</button>' +
         '<button class="interactive-btn" onclick="openEditAccount()" style="' + ACCT_BTN_STYLE + 'background: #18181B; color: #fff; border: 1px solid #27272A;">Edit</button>' +
         '<button class="interactive-btn" onclick="removeLinkedAccount(openAccountId)" style="' + ACCT_BTN_STYLE + 'background: #18181B; color: #FF4D6D; border: 1px solid #27272A;">Remove</button>';
 }
@@ -248,26 +242,33 @@ function showAccountFormError(message) {
 function openUpdateBalance() {
     const account = ACCOUNTS.find(a => a.id === openAccountId);
     if (!account) return;
-    showAccountForm('Update balance',
-        '<p style="font-size: 13px; color: #A1A1AA; margin-top: -8px;">Today\'s balance of ' + escapeHTML(account.name) + ' in ' + account.currency + '. It\'s saved in the account\'s history.</p>' +
-        formInputHTML('acct-form-balance', 'Balance (' + account.currency + ')', account.balance, 'number'),
+    // Debts are stored as negatives, but you always type the positive amount you owe.
+    const word = isDebt(account) ? 'Amount owed' : isValuedByHand(account) ? 'Value' : 'Balance';
+    showAccountForm('Update ' + word.toLowerCase(),
+        '<p style="font-size: 13px; color: #A1A1AA; margin-top: -8px;">Today\'s ' + word.toLowerCase() + ' of ' + escapeHTML(account.name) + ' in ' + account.currency + '. It\'s saved in its history.</p>' +
+        formInputHTML('acct-form-balance', word + ' (' + account.currency + ')', Math.abs(account.balance), 'number'),
         'saveUpdatedBalance()');
 }
 
 function saveUpdatedBalance() {
     const raw = document.getElementById('acct-form-balance').value.trim();
     const balance = Number(raw);
-    if (raw === '' || !isFinite(balance) || balance < 0) return showAccountFormError('Enter a balance of 0 or more.');
-    updateLinkedAccount(openAccountId, { balance: Math.round(balance * 100) / 100 });
+    if (raw === '' || !isFinite(balance) || balance < 0) return showAccountFormError('Enter an amount of 0 or more.');
+    const account = ACCOUNTS.find(a => a.id === openAccountId);
+    const rounded = Math.round(balance * 100) / 100;
+    updateLinkedAccount(openAccountId, { balance: isDebt(account) ? -rounded : rounded });
     closeModalAndReset();
 }
 
 function openEditAccount() {
     const account = ACCOUNTS.find(a => a.id === openAccountId);
     if (!account) return;
+    const linkable = MANUAL_KINDS[account.kind] && MANUAL_KINDS[account.kind].linkable;
+    const properties = ACCOUNTS.filter(a => a.kind === 'property');
     showAccountForm('Edit account',
         formInputHTML('acct-form-name', 'Name', account.name) +
         formInputHTML('acct-form-type', 'Type (e.g. Savings, Checking)', account.type) +
+        (linkable && properties.length ? linkSelectHTML(properties, account.linkedTo || '') : '') +
         '<p style="font-size: 12px; color: #71717A; margin-top: -6px;">Currency can\'t be changed, because the history is stored in ' + account.currency + '. To change it, remove the account and add it again.</p>',
         'saveEditedAccount()');
 }
@@ -276,6 +277,7 @@ function saveEditedAccount() {
     const name = document.getElementById('acct-form-name').value.trim();
     const type = document.getElementById('acct-form-type').value.trim();
     if (!name) return showAccountFormError('Enter a name.');
-    updateLinkedAccount(openAccountId, { name: name, type: type });
+    const link = document.getElementById('manual-link');
+    updateLinkedAccount(openAccountId, link ? { name: name, type: type, linkedTo: link.value } : { name: name, type: type });
     closeModalAndReset();
 }

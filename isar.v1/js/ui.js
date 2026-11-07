@@ -45,6 +45,7 @@ function initScreenTransitions() {
     const update = () => {
         frame.classList.toggle('screen-open', screens.some(s => s.classList.contains('open')));
         closeAllMenus();
+        updateGlobeRunning();
     };
     const observer = new MutationObserver(update);
     screens.forEach(s => observer.observe(s, { attributes: true, attributeFilter: ['class'] }));

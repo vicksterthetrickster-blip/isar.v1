@@ -57,11 +57,12 @@ function bankIconHTML(item, size) {
     const domain = monogram ? null : logoDomainFor(item);
     const light = isLightColor(color);
     const letter = monogram || escapeHTML(Array.from(item.name || '?')[0].toUpperCase());
+    const kind = !item.domain && MANUAL_KINDS[item.kind];      // property, loans etc. use a line icon
     const logo = domain && logoCache[domain];
     if (domain && !logo) requestLogo(domain);
     return '<div class="bank-icon' + (light ? ' light' : '') + '"' + (domain ? ' data-logo-domain="' + escapeHTML(domain) + '"' : '') +
         ' style="width: ' + size + 'px; height: ' + size + 'px; border-radius: ' + Math.round(size * 0.3) + 'px; background: ' + color + '; font-size: ' + Math.round(size * (monogram ? 0.34 : 0.42)) + 'px;">' +
-        (logo ? '<img src="' + logo + '" alt="">' : letter) +
+        (logo ? '<img src="' + logo + '" alt="">' : kind ? kindIconHTML(kind.icon) : letter) +
     '</div>';
 }
 

@@ -153,9 +153,6 @@
             #secure-modal, #signout-dialog, #modal-content-box, #signout-dialog > div { animation: none !important; }
         }
 
-        /* Apple Wallet Stack Styles */
-        .wallet-container { position: relative; height: 190px; width: 100%; margin-top: 4px; }
-        .wallet-card { position: absolute; width: 100%; height: 140px; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 25px rgba(0,0,0,0.5); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
         /* The account screen's currency menu is centred with transform, so its animation has to keep
@@ -311,6 +308,42 @@
                  background: #1E1E24; border: 1px solid #27272A; border-radius: 14px; padding: 12px 14px; color: #fff; font-size: 14px; font-weight: 600; text-align: center;
                  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6); }
         .toast.show { animation: toastInOut 3.2s ease forwards; }
+
+        /* Globe tab. touch-action: pan-y lets a finger drag sideways to spin while up/down still scrolls. */
+        .globe-canvas { display: block; width: 100%; max-width: 360px; aspect-ratio: 1; margin: -8px auto; touch-action: pan-y; cursor: grab; }
+        .globe-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #121216; border: 1px solid #1E1E24; border-radius: 14px;
+                     padding: 11px 14px; color: #fff; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.12s; }
+        .globe-row:active { transform: scale(0.98); background: #18181B; }
+        .globe-row.selected { border-color: #00FF85; }
+        .globe-flag { font-size: 24px; line-height: 1; flex-shrink: 0; }
+        .globe-place { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; display: flex; flex-direction: column; gap: 2px; }
+        .globe-place small { font-size: 12px; font-weight: 500; color: #71717A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .globe-bar { display: block; height: 3px; border-radius: 2px; background: #27272A; margin-top: 4px; overflow: hidden; }
+        .globe-bar span { display: block; height: 100%; background: #00FF85; }
+        .globe-value { flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 700; display: flex; flex-direction: column; gap: 2px; }
+        .globe-value small { font-size: 12px; font-weight: 500; color: #71717A; }
+        .exposure-select { background: #18181B; border: 1px solid #27272A; border-radius: 10px; padding: 8px; color: #fff; font-size: 14px; }
+        .exposure-slider { flex: 1; min-width: 0; accent-color: #00FF85; }
+        .exposure-label { width: 44px; flex-shrink: 0; text-align: right; font-size: 14px; font-weight: 700; }
+
+        /* Insights tab */
+        .leak-hero { background: linear-gradient(160deg, rgba(255, 77, 109, 0.16), #121216 62%); border-color: rgba(255, 77, 109, 0.28); }
+        .leak-title { font-size: 13px; font-weight: 700; color: #FF4D6D; text-transform: uppercase; letter-spacing: 0.5px; }
+        .leak-total { font-size: 36px; font-weight: 800; letter-spacing: -1px; }
+        .leak-split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .leak-split > div { background: rgba(0, 0, 0, 0.28); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .leak-split small { font-size: 12px; color: #A1A1AA; font-weight: 600; }
+        .leak-split strong { font-size: 16px; font-weight: 800; }
+        .insight-row { justify-content: flex-start; gap: 12px; }
+        .per-year { display: block; font-size: 12px; font-weight: 500; color: #71717A; text-align: right; }
+
+        /* Account groups on the home tab, and forms for adding things by hand */
+        .group-head { display: flex; justify-content: space-between; gap: 10px; margin: 16px 2px 8px; font-size: 13px; font-weight: 600; color: #71717A; }
+        .group-head:first-child { margin-top: 0; }
+        .group-head span:first-child { text-transform: uppercase; letter-spacing: 0.5px; }
+        .kind-icon { width: 56%; height: 56%; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+        .form-label { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 12px; color: #A1A1AA; }
+        .form-select { width: 100%; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; }
 
         /* Home tab with no accounts yet */
         .home-empty { align-items: center; text-align: center; gap: 10px; padding: 28px 20px; }

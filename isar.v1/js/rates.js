@@ -191,6 +191,7 @@ async function refreshRateHistory() {
         rateHistoryDates = Object.keys(rateHistory).sort();
         try { localStorage.setItem(RATE_HISTORY_KEY, JSON.stringify(rateHistory)); } catch (e) {}
         refreshAccountTransactions();
+        refreshActiveTab();
     } catch (err) {
         console.warn('Could not load past exchange rates.', err);
     }
@@ -235,7 +236,7 @@ function renderCurrencyMenu() {
         const activeClass = code === activeCurrency ? ' active' : '';
         return `<button class="dropdown-item${activeClass}" onclick="selectCurrency('${code}')">` +
                `<span>${meta.flag} ${code}</span>` +
-               `<span style="color:#71717A">${meta.symbol}${Math.round(value).toLocaleString('en-US')}</span>` +
+               `<span style="color:#71717A">${value < 0 ? '−' : ''}${meta.symbol}${Math.abs(Math.round(value)).toLocaleString('en-US')}</span>` +
                `</button>`;
     }).join('');
 }
@@ -258,7 +259,14 @@ function renderPortfolioValue() {
     const sub = document.getElementById('balance-subtext');
 
     document.getElementById('curr-label').innerText = code + ' ' + meta.flag;
-    document.getElementById('balance-display').innerText = meta.symbol + formatMoney(getPortfolioTotal(code));
+    const total = getPortfolioTotal(code);
+    document.getElementById('balance-display').innerText = (total < 0 ? '−' : '') + meta.symbol + formatMoney(Math.abs(total));
+
+    // Assets and debts, once there are any debts
+    const debtsAUD = getDebtsTotalAUD();
+    const split = document.getElementById('networth-split');
+    split.hidden = !debtsAUD;
+    split.innerText = 'Assets ' + meta.symbol + Math.round(convertFromBase(getAssetsTotalAUD(), code)).toLocaleString('en-US') + ' · Debts −' + meta.symbol + Math.round(Math.abs(convertFromBase(debtsAUD, code))).toLocaleString('en-US');
 
     // Change over the past month, worked out from the history records.
     const change = getPastMonthChange(code);

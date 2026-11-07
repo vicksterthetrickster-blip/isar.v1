@@ -108,23 +108,39 @@ const USER_SETTINGS = { faceIdLock: true, notifications: true, showSampleData: t
 
 // SINGLE SOURCE OF TRUTH for every account and its balance.
 // To change a balance, edit the `balance` number on that account's line and
-// nothing else: the Accounts tab, Transfer dropdowns, net-worth total and
+// nothing else: the Accounts tab, net-worth total and
 // currency menu are all generated from this array. `balance` is in the
 // account's own native currency. In production this would come from the
 // connected-account API.
-// The six accounts below are SAMPLE data (read-only). They're removed on start-up
+// The accounts below are SAMPLE data (read-only). They're removed on start-up
 // when "Show sample data" is off (storage.js); the user's own accounts are added after them.
+// `group` and `kind` are explained in accounttypes.js. Debts have a negative balance.
 const ACCOUNTS = [
     { id: 'westpac', name: 'Westpac (AUS)',       type: 'Checking',            letter: 'W', color: '#DA1710', balance: 35120, currency: 'AUD', domain: 'westpac.com.au' },
     { id: 'bbva',    name: 'BBVA (ESP)',          type: 'Savings',             letter: 'B', color: '#004481', balance: 42800, currency: 'EUR', domain: 'bbva.com' },
     { id: 'revolut', name: 'Revolut (UK)',        type: 'Multi-Currency',      letter: 'R', color: '#191C1F', balance: 12400, currency: 'GBP', domain: 'revolut.com' },
-    { id: 'crypto',  name: 'Crypto.com (US)',     type: 'Digital Assets',      letter: 'C', color: '#111827', balance: 15400, currency: 'USD', domain: 'crypto.com' },
+    { id: 'crypto',  name: 'Crypto.com (US)',     type: 'Digital Assets',      letter: 'C', color: '#111827', balance: 15400, currency: 'USD', domain: 'crypto.com', group: 'investments' },
     { id: 'wise',    name: 'Wise (EU)',           type: 'Business Account',    letter: 'T', color: '#00A3E0', balance: 8450,  currency: 'EUR', domain: 'wise.com' },
-    { id: 'ibkr',    name: 'Interactive Brokers', type: 'Brokerage Portfolio', letter: 'I', color: '#F58220', balance: 34280, currency: 'AUD', domain: 'interactivebrokers.com' }
+    { id: 'ibkr',    name: 'Interactive Brokers', type: 'Brokerage Portfolio', letter: 'I', color: '#F58220', balance: 34280, currency: 'AUD', domain: 'interactivebrokers.com', group: 'investments' },
+    { id: 'home',     name: 'Home, Sydney',       type: 'Property',    letter: 'H', color: '#0F766E', balance: 1150000, currency: 'AUD', group: 'assets', kind: 'property',   history: sampleMonthlyHistory(1150000, -3800) },
+    { id: 'car',      name: 'Tesla Model 3',      type: 'Vehicle',     letter: 'T', color: '#475569', balance: 48000,   currency: 'AUD', group: 'assets', kind: 'vehicle',    history: sampleMonthlyHistory(48000, 650) },
+    { id: 'mortgage', name: 'Home loan',          type: 'Mortgage',    letter: 'H', color: '#9F1239', balance: -742000, currency: 'AUD', group: 'debts',  kind: 'mortgage',   linkedTo: 'home', history: sampleMonthlyHistory(-742000, -1900) },
+    { id: 'visa',     name: 'Westpac Credit Card', type: 'Credit card', letter: 'W', color: '#DA1710', balance: -3200,  currency: 'AUD', group: 'debts',  kind: 'creditCard', domain: 'westpac.com.au', history: sampleMonthlyHistory(-3200, 0) }
 ];
 
-// How many accounts show before the "+ N accounts" toggle is opened.
-const VISIBLE_ACCOUNT_COUNT = 4;
+// Monthly values for a sample asset or debt, going back past the start of the sample history.
+// `changePerMonthAgo` is how much the value differed for each month further back.
+function sampleMonthlyHistory(balance, changePerMonthAgo) {
+    const history = [];
+    for (let monthsAgo = 16; monthsAgo >= 1; monthsAgo--) {
+        const day = new Date();
+        day.setDate(1);
+        day.setMonth(day.getMonth() - monthsAgo);
+        const date = day.getFullYear() + '-' + String(day.getMonth() + 1).padStart(2, '0') + '-01';
+        history.push({ date: date, balance: balance + changePerMonthAgo * monthsAgo });
+    }
+    return history;
+}
 
 // All exchange rates are stored as "1 AUD = X of this currency". This makes
 // every account comparable: native balance -> AUD -> selected display currency.

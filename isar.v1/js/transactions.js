@@ -45,21 +45,22 @@ function convertTransactionAmount(amount, account, code, date) {
 }
 
 function usesMockTransactions(account) {
-    return USER_SETTINGS.showSampleData && !Array.isArray(account.transactions) &&
+    return USER_SETTINGS.showSampleData && !Array.isArray(account.transactions) && !isValuedByHand(account) &&
         (!account.userLinked || account.historySource === 'mock');
 }
 
 // Your own accounts: each saved balance becomes an entry, showing how much it changed by.
 function balanceUpdateEntries(account) {
     const points = (account.history || []).filter(h => typeof h.balance === 'number' && h.date >= (account.addedDate || ''));
+    const word = isValuedByHand(account) ? 'value' : 'balance';
     const entries = points.map((point, i) => {
         const change = i === 0 ? point.balance : Math.round((point.balance - points[i - 1].balance) * 100) / 100;
         return {
             id: account.id + '-' + point.date,
             date: point.date,
             time: point.time,
-            description: i === 0 ? 'Starting balance' : 'Balance updated',
-            category: i === 0 ? 'Account added' : 'Entered by you',
+            description: i === 0 ? 'Starting ' + word : word[0].toUpperCase() + word.slice(1) + ' updated',
+            category: !account.userLinked ? 'Sample data' : i === 0 ? 'Account added' : 'Entered by you',
             amount: change,
             opening: i === 0
         };
@@ -70,21 +71,24 @@ function balanceUpdateEntries(account) {
 // ===== MOCK DATA: replaced by the bank provider later =====
 // Believable transactions for sample accounts. Amounts are in AUD and scaled to the
 // account's currency and size. `day` = every month on that date; `chance` = per day.
+// `mainOnly` = only on your main account, so a demo person doesn't pay three rents.
 const MOCK_TRANSACTION_RULES = {
     everyday: [
-        { description: 'Salary', category: 'Income', min: 3100, max: 3400, in: true, day: 15 },
-        { description: 'Rent', category: 'Housing', min: 1700, max: 1700, day: 1 },
-        { description: 'Electricity bill', category: 'Bills', min: 90, max: 190, day: 9 },
-        { description: 'Mobile plan', category: 'Bills', min: 45, max: 45, day: 20 },
-        { description: 'Netflix', category: 'Subscriptions', min: 19, max: 19, day: 12 },
-        { description: 'Spotify', category: 'Subscriptions', min: 14, max: 14, day: 23 },
+        { description: 'Salary', category: 'Income', min: 3100, max: 3400, in: true, day: 15, mainOnly: true },
+        { description: 'Rent', category: 'Housing', min: 1700, max: 1700, day: 1, mainOnly: true },
+        { description: 'Electricity bill', category: 'Bills', min: 90, max: 190, day: 9, mainOnly: true },
+        { description: 'Mobile plan', category: 'Bills', min: 45, max: 45, day: 20, mainOnly: true },
+        { description: 'Netflix', category: 'Subscriptions', min: 19, max: 19, day: 12, mainOnly: true },
+        { description: 'Spotify', category: 'Subscriptions', min: 14, max: 14, day: 23, mainOnly: true },
         { description: 'Supermarket', category: 'Groceries', min: 35, max: 160, chance: 0.28 },
         { description: 'Cafe', category: 'Eating out', min: 5, max: 24, chance: 0.38 },
         { description: 'Restaurant', category: 'Eating out', min: 30, max: 110, chance: 0.1 },
         { description: 'Uber', category: 'Transport', min: 12, max: 45, chance: 0.12 },
         { description: 'Fuel', category: 'Transport', min: 50, max: 90, chance: 0.07 },
         { description: 'Amazon', category: 'Shopping', min: 18, max: 140, chance: 0.08 },
-        { description: 'Transfer received', category: 'Transfers', min: 40, max: 300, in: true, chance: 0.05 }
+        { description: 'Transfer received', category: 'Transfers', min: 40, max: 300, in: true, chance: 0.05 },
+        { description: 'Monthly account fee', category: 'Fees', min: 6, max: 6, day: 5 },
+        { description: 'ATM fee', category: 'Fees', min: 3, max: 5, chance: 0.04 }
     ],
     savings: [
         { description: 'Interest', category: 'Income', min: 95, max: 130, in: true, day: 28 },
@@ -145,6 +149,10 @@ function mockTransactionTime(id) {
 
 const mockTransactionCache = {};        // account id + balance + rate days + hour -> generated list
 
+function isMockMainAccount(account) {
+    return account.type !== 'Multi-Currency' && account.type !== 'Business Account';
+}
+
 function mockRulesFor(account) {
     const bank = topBanks.find(b => b.name === account.bankName);
     const kind = (bank && bank.kind) || '';
@@ -181,7 +189,7 @@ function generateMockTransactions(account) {
         rules.forEach((rule, i) => {
             const happens = rule.day ? day.getDate() === rule.day : random() < rule.chance;
             const spread = random();
-            if (!happens) return;
+            if (!happens || (rule.mainOnly && !isMockMainAccount(account))) return;
             const amount = Math.round((rule.min + spread * (rule.max - rule.min)) * size * fallbackRate * 100) / 100;
             list.push({ id: account.id + '-' + date + '-' + i, date: date, description: rule.description, category: rule.category, amount: rule.in ? amount : -amount });
         });
@@ -256,7 +264,12 @@ function renderAccountTransactions(account) {
     const moneyOut = recent.filter(t => t.amount < 0).reduce((sum, t) => sum + inView(t), 0);
     const symbol = CURRENCY_META[code].symbol;
     const approx = converted ? '≈ ' : '';
-    document.getElementById('acct-tx-title').innerText = 'Transactions · ' + code;
+    // Assets and debts have value updates rather than transactions, so no money in/out totals
+    const updatesOnly = isValuedByHand(account);
+    document.getElementById('acct-tx-summary').hidden = updatesOnly;
+    document.getElementById('acct-tx-filters').hidden = updatesOnly;
+    if (updatesOnly) acctTxFilter = 'all';
+    document.getElementById('acct-tx-title').innerText = (updatesOnly ? 'Value history · ' : 'Transactions · ') + code;
     document.getElementById('acct-tx-in').innerText = approx + symbol + formatMoney(moneyIn);
     document.getElementById('acct-tx-out').innerText = approx + symbol + formatMoney(Math.abs(moneyOut));
 
@@ -293,7 +306,7 @@ function renderAccountTransactions(account) {
     }).join('') || '<div class="tx-empty">Nothing here yet</div>';
 
     document.getElementById('acct-tx-more').hidden = shown.length <= acctTxLimit;
-    const source = Array.isArray(account.transactions) ? ''
+    const source = Array.isArray(account.transactions) || updatesOnly ? ''
         : usesMockTransactions(account) ? 'Sample transactions for the demo.'
         : 'These are the balance updates you\'ve entered. Individual transactions will appear here once this bank is connected.';
     document.getElementById('acct-tx-note').innerText = (converted ? 'Converted from ' + account.currency + ' using each day\'s exchange rate. ' : '') + source;
