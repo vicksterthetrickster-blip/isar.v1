@@ -58,6 +58,10 @@ function updateRatesStatus() {
         main.innerText = 'Couldn\u2019t refresh \u00b7 using last rates';
         main.style.color = '#71717A';
         sub.innerText = 'ECB fixing: ' + formatRateDate(ratesAsOf) + ' \u00b7 tap \u27f3 to retry';
+    } else if (ratesAsOf) {
+        main.innerText = 'Offline \u00b7 using saved rates';
+        main.style.color = '#71717A';
+        sub.innerText = 'ECB fixing: ' + formatRateDate(ratesAsOf) + ' \u00b7 tap \u27f3 to retry';
     } else {
         main.innerText = 'Offline \u00b7 fallback rates';
         main.style.color = '#71717A';
@@ -140,6 +144,8 @@ async function fetchLiveRates(manual) {
         ratesAreLive = true;
         ratesLastFetchFailed = false;
         ratesAsOf = data.date;
+        rateHistory[data.date] = Object.assign({}, data.rates);    // becomes the backup for next time
+        saveRateHistory();
         ratesUpdatedAt = new Date();
         succeeded = true;
     } catch (err) {
@@ -176,6 +182,25 @@ function loadRateHistory() {
     try { return JSON.parse(localStorage.getItem(RATE_HISTORY_KEY)) || {}; } catch (e) { return {}; }
 }
 
+function saveRateHistory() {
+    rateHistoryDates = Object.keys(rateHistory).sort();
+    try { localStorage.setItem(RATE_HISTORY_KEY, JSON.stringify(rateHistory)); } catch (e) {}
+}
+
+// --- Backup rates ---
+// Until today's live rates arrive (or if they can't), use the NEWEST day saved on this device,
+// rather than the fixed backup rates in data.js, which get older every day. Every successful
+// live download is saved as a day too (fetchLiveRates), so the backup is never older than the
+// last time the app got online. The fixed rates are only used on a device's very first open.
+function applySavedRates() {
+    const newest = rateHistoryDates[rateHistoryDates.length - 1];
+    if (!newest) return;
+    Object.keys(rateHistory[newest]).forEach(code => {
+        if (code in EXCHANGE_RATES && rateHistory[newest][code] > 0) EXCHANGE_RATES[code] = rateHistory[newest][code];
+    });
+    ratesAsOf = newest;
+}
+
 // Downloads whichever days are missing, then redraws any open transaction list.
 async function refreshRateHistory() {
     const start = new Date();
@@ -190,8 +215,7 @@ async function refreshRateHistory() {
         if (!response.ok) throw new Error('Rate history request failed: ' + response.status);
         const data = await response.json();
         Object.assign(rateHistory, data.rates);
-        rateHistoryDates = Object.keys(rateHistory).sort();
-        try { localStorage.setItem(RATE_HISTORY_KEY, JSON.stringify(rateHistory)); } catch (e) {}
+        saveRateHistory();
         refreshAccountTransactions();
         refreshActiveTab();
     } catch (err) {

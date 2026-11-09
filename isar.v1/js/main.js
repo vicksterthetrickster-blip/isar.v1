@@ -39,6 +39,7 @@ function updateGlobeRunning() {
 // Initialize instantly with fallback rates so the UI never shows a blank state,
 // then fetch live rates and re-render once they arrive.
 function startApp() {
+    applySavedRates();                  // first, so everything below uses the newest rates this device has
     upgradeLinkedAccounts();
     recordDailySnapshot();
     renderUser();

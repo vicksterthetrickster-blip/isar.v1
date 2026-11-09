@@ -148,7 +148,8 @@ const BASE_CURRENCY = 'AUD';
 
 // Every currency the app supports: the ones the European Central Bank publishes a daily
 // reference rate for (via Frankfurter, see rates.js). Order = order in every picker.
-// `fallback` is the ECB rate from 30 Oct 2026 ("1 AUD = X"), used only until live rates load
+// `fallback` is the ECB rate from 30 Oct 2026 ("1 AUD = X"). It's only used on a device's very first
+// open, before any rates have been saved (see applySavedRates in rates.js), until live rates load
 // (or if they can't load). Live rates replace them within a second or two of opening.
 // To add a currency: add a line here; it must be one the ECB publishes.
 const CURRENCIES = [
