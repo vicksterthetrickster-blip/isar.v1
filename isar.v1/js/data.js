@@ -115,13 +115,35 @@ const USER_SETTINGS = { faceIdLock: true, notifications: true, showSampleData: t
 // The accounts below are SAMPLE data (read-only). They're removed on start-up
 // when "Show sample data" is off (storage.js); the user's own accounts are added after them.
 // `group` and `kind` are explained in accounttypes.js. Debts have a negative balance.
+// The two investment accounts list their holdings (see holdings.js): their balance is worked out
+// from these on start-up, so the `balance` on their lines is only a starting value.
+
+// Sample holdings, with fixed sample prices so the demo never jumps around.
+// costBasis = the total paid, in the holding's own currency.
+const SAMPLE_HOLDINGS = {
+    ibkr: [
+        { id: 's-vas', symbol: 'VAS', name: 'Vanguard Australian Shares ETF', kind: 'etf', quantity: 100, price: 105.2, currency: 'AUD', costBasis: 9400, priceSource: 'sample' },
+        { id: 's-vgs', symbol: 'VGS', name: 'Vanguard International Shares ETF', kind: 'etf', quantity: 60, price: 145.5, currency: 'AUD', costBasis: 7100, priceSource: 'sample' },
+        { id: 's-nvda', symbol: 'NVDA', name: 'NVIDIA', kind: 'stock', quantity: 25, price: 190, currency: 'USD', costBasis: 2600, priceSource: 'sample' },
+        { id: 's-aapl', symbol: 'AAPL', name: 'Apple', kind: 'stock', quantity: 15, price: 260, currency: 'USD', costBasis: 3100, priceSource: 'sample' },
+        { id: 's-ibkr-cash', symbol: 'AUD', name: 'Cash', kind: 'cash', quantity: 1880, price: 1, currency: 'AUD', priceSource: 'sample' }
+    ],
+    crypto: [
+        { id: 's-btc', symbol: 'BTC', name: 'Bitcoin', kind: 'crypto', coinId: 'bitcoin', quantity: 0.09, price: 100000, currency: 'USD', costBasis: 6200, priceSource: 'sample' },
+        { id: 's-eth', symbol: 'ETH', name: 'Ethereum', kind: 'crypto', coinId: 'ethereum', quantity: 1.2, price: 3500, currency: 'USD', costBasis: 3900, priceSource: 'sample' },
+        { id: 's-sol', symbol: 'SOL', name: 'Solana', kind: 'crypto', coinId: 'solana', quantity: 8, price: 180, currency: 'USD', costBasis: 1100, priceSource: 'sample' },
+        { id: 's-cro', symbol: 'CRO', name: 'Cronos', kind: 'crypto', coinId: 'crypto-com-chain', quantity: 3000, price: 0.12, currency: 'USD', costBasis: 450, priceSource: 'sample' },
+        { id: 's-crypto-cash', symbol: 'USD', name: 'Cash', kind: 'cash', quantity: 400, price: 1, currency: 'USD', priceSource: 'sample' }
+    ]
+};
+
 const ACCOUNTS = [
     { id: 'westpac', name: 'Westpac (AUS)',       type: 'Checking',            letter: 'W', color: '#DA1710', balance: 35120, currency: 'AUD', domain: 'westpac.com.au' },
     { id: 'bbva',    name: 'BBVA (ESP)',          type: 'Savings',             letter: 'B', color: '#004481', balance: 42800, currency: 'EUR', domain: 'bbva.com' },
     { id: 'revolut', name: 'Revolut (UK)',        type: 'Multi-Currency',      letter: 'R', color: '#191C1F', balance: 12400, currency: 'GBP', domain: 'revolut.com' },
-    { id: 'crypto',  name: 'Crypto.com (US)',     type: 'Digital Assets',      letter: 'C', color: '#111827', balance: 15400, currency: 'USD', domain: 'crypto.com', group: 'investments' },
+    { id: 'crypto',  name: 'Crypto.com (US)',     type: 'Digital Assets',      letter: 'C', color: '#111827', balance: 15400, currency: 'USD', domain: 'crypto.com', group: 'investments', holdings: SAMPLE_HOLDINGS.crypto },
     { id: 'wise',    name: 'Wise (EU)',           type: 'Business Account',    letter: 'T', color: '#00A3E0', balance: 8450,  currency: 'EUR', domain: 'wise.com' },
-    { id: 'ibkr',    name: 'Interactive Brokers', type: 'Brokerage Portfolio', letter: 'I', color: '#F58220', balance: 34280, currency: 'AUD', domain: 'interactivebrokers.com', group: 'investments' },
+    { id: 'ibkr',    name: 'Interactive Brokers', type: 'Brokerage Portfolio', letter: 'I', color: '#F58220', balance: 34280, currency: 'AUD', domain: 'interactivebrokers.com', group: 'investments', holdings: SAMPLE_HOLDINGS.ibkr },
     { id: 'home',     name: 'Home, Sydney',       type: 'Property',    letter: 'H', color: '#0F766E', balance: 1150000, currency: 'AUD', group: 'assets', kind: 'property',   history: sampleMonthlyHistory(1150000, -3800) },
     { id: 'car',      name: 'Tesla Model 3',      type: 'Vehicle',     letter: 'T', color: '#475569', balance: 48000,   currency: 'AUD', group: 'assets', kind: 'vehicle',    history: sampleMonthlyHistory(48000, 650) },
     { id: 'mortgage', name: 'Home loan',          type: 'Mortgage',    letter: 'H', color: '#9F1239', balance: -742000, currency: 'AUD', group: 'debts',  kind: 'mortgage',   linkedTo: 'home', history: sampleMonthlyHistory(-742000, -1900) },

@@ -162,6 +162,7 @@ async function fetchLiveRates(manual) {
 
     ratesRefreshing = false;
     setRatesRefreshingUI(false);
+    revalueHoldings();          // e.g. US shares in an AUD account change value when USD moves
     recordDailySnapshot();
     renderPortfolioValue();
     renderGraph();

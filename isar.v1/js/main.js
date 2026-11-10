@@ -41,6 +41,7 @@ function updateGlobeRunning() {
 function startApp() {
     applySavedRates();                  // first, so everything below uses the newest rates this device has
     upgradeLinkedAccounts();
+    revalueHoldings();                  // investment accounts with holdings work out their balance
     recordDailySnapshot();
     renderUser();
     renderSettings();
@@ -57,8 +58,9 @@ function startApp() {
     refreshRateHistory();
     // The daily summary waits for live rates, so it compares real numbers.
     fetchLiveRates(false).then(() => { if (!needsSetup()) showDailySummary(); });
+    refreshHoldingPrices();             // live crypto prices (and, once the server exists, broker sync and share prices)
     // Keep an open dashboard current without relying on a page reload.
-    setInterval(() => fetchLiveRates(false), 5 * 60 * 1000);
+    setInterval(() => { fetchLiveRates(false); refreshHoldingPrices(); }, 5 * 60 * 1000);
 }
 
 // --- Start-up: runs last, once every function and variable above exists ---

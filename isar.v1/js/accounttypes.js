@@ -1,7 +1,8 @@
 // accounttypes.js — the four groups everything in Isar belongs to, and the things you add by hand.
 //
 //   Cash         the balance, read from the bank (or typed in for now)
-//   Investments  stocks, ETFs, crypto and retirement funds (one total for now; holdings come later)
+//   Investments  stocks, ETFs, crypto and retirement funds. Can list what's inside (holdings.js),
+//                or just one total
 //   Assets       an estimate you enter and update: property, cars, valuables...
 //   Debts        what you owe. STORED AS A NEGATIVE BALANCE, so every total, graph and daily
 //                snapshot subtracts it automatically. Forms ask for the positive amount owed.

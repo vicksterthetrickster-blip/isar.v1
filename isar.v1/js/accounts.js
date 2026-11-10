@@ -171,6 +171,7 @@ function renderAccountDetail() {
     renderAccountTimeframes();
     const layout = drawGraph(points, { line: 'acct-graph-line', area: 'acct-graph-area', svg: 'acct-graph-svg', labels: 'acct-graph-labels', empty: 'acct-graph-empty', pct: 'acct-graph-pct' });
     drawAddedMarkers('acct-graph-markers', layout, getAddedMarkers([account]));
+    renderAccountHoldings(account);
     renderAccountTransactions(account);
 
     // Details
@@ -206,8 +207,11 @@ function renderAcctActions(account) {
         return;
     }
     const updateLabel = isDebt(account) ? 'Update amount' : isValuedByHand(account) ? 'Update value' : 'Update balance';
-    el.innerHTML =
-        '<button class="interactive-btn" onclick="openUpdateBalance()" style="' + ACCT_BTN_STYLE + 'background: #00FF85; color: #000; border: none;">' + updateLabel + '</button>' +
+    // With holdings, the balance is worked out from them (holdings.js), so it isn't typed in.
+    const mainButton = hasHoldings(account)
+        ? (canEditHoldings(account) ? '<button class="interactive-btn" onclick="openAddHolding()" style="' + ACCT_BTN_STYLE + 'background: #00FF85; color: #000; border: none;">Add holding</button>' : '')
+        : '<button class="interactive-btn" onclick="openUpdateBalance()" style="' + ACCT_BTN_STYLE + 'background: #00FF85; color: #000; border: none;">' + updateLabel + '</button>';
+    el.innerHTML = mainButton +
         '<button class="interactive-btn" onclick="openEditAccount()" style="' + ACCT_BTN_STYLE + 'background: #18181B; color: #fff; border: 1px solid #27272A;">Edit</button>' +
         '<button class="interactive-btn" onclick="removeLinkedAccount(openAccountId)" style="' + ACCT_BTN_STYLE + 'background: #18181B; color: #FF4D6D; border: 1px solid #27272A;">Remove</button>';
 }
