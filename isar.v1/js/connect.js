@@ -320,12 +320,14 @@ function promptConnect(bankIndex) {
 
     if (isBankLinked(bank.name)) {
         document.getElementById('modal-title').innerText = bank.name + ' is already linked';
-        document.getElementById('modal-desc').innerText = 'You can remove it from "Your linked banks" on the Connect tab.';
+        document.getElementById('modal-desc').innerText = 'You can remove it from "Your accounts" on the Add tab.';
         document.getElementById('modal-actions').innerHTML =
             '<button onclick="closeModal()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">OK</button>';
     } else {
-        document.getElementById('modal-title').innerText = 'Securely connect ' + bank.name + '?';
-        document.getElementById('modal-desc').innerText = 'Isar uses secure, read-only tokenization to sync your balances without storing credentials.';
+        // Honest wording: live bank connections don't exist yet, so promising "secure
+        // tokenization" would describe protection the app doesn't have.
+        document.getElementById('modal-title').innerText = 'Add ' + bank.name;
+        document.getElementById('modal-desc').innerText = 'Live bank connections aren\'t ready yet, so you enter the balance yourself. Isar only ever reads balances — it can never move your money.';
     }
     document.getElementById('secure-modal').style.display = 'flex';
 }
@@ -340,20 +342,21 @@ function startSecureConnect() {
     modalBox.innerHTML = `
         <div style="width: 36px; height: 36px; border: 3px solid #27272A; border-top-color: #00FF85; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto;"></div>
         <div>
-            <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px;">Redirecting to ${name}</h3>
-            <p style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">Taking you to your bank to securely authorize reading...</p>
+            <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px;">Setting up ${name}</h3>
+            <p style="font-size: 12px; color: #A1A1AA; line-height: 1.4;">One moment...</p>
         </div>
     `;
 
-    // Simulated authorization. Until a real open-banking provider is connected,
-    // the user enters the balance and currency themselves.
+    // No real connection happens here. Until an open-banking provider is connected, the user
+    // enters the balance and currency themselves, and the wording says so rather than
+    // pretending the bank authorized anything.
     setTimeout(() => {
         const currencyOptions = currencyOptionsHTML(activeCurrency);
         modalBox.innerHTML = `
             <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(0,255,133,0.15); color: #00FF85; font-size: 22px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">✓</div>
             <div>
-                <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Authorized</h3>
-                <p style="font-size: 13px; color: #A1A1AA;">Enter the current balance of your ${name} account.</p>
+                <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Added to Isar</h3>
+                <p style="font-size: 13px; color: #A1A1AA;">Enter the current balance of your ${name} account. You can update it any time.</p>
             </div>
             <!-- Balance and currency on separate full-width rows: side by side, the long currency
                  names made the picker so wide that the balance box got squashed. -->
@@ -395,7 +398,7 @@ function closeModalAndReset() {
         <div id="modal-icon" style="width: 48px; height: 48px; border-radius: 12px; background: #00FF85; color: #000; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto;">C</div>
         <div>
             <h3 id="modal-title" style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">Securely connect?</h3>
-            <p id="modal-desc" style="font-size: 13px; color: #A1A1AA; line-height: 1.4;">Isar uses secure, read-only tokenization.</p>
+            <p id="modal-desc" style="font-size: 13px; color: #A1A1AA; line-height: 1.4;">Isar only ever reads balances.</p>
         </div>
         <div id="modal-actions" style="display: flex; gap: 10px;">
             <button onclick="closeModal()" style="flex: 1; background: #27272A; border: none; border-radius: 12px; padding: 12px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;">Cancel</button>

@@ -106,7 +106,7 @@ function renderSetupDone() {
     const meta = CURRENCY_META[activeCurrency];
     document.getElementById('setup-summary').innerText = count
         ? 'Your net worth across ' + count + (count === 1 ? ' account' : ' accounts') + ':'
-        : 'You can add accounts any time from the Connect tab.';
+        : 'You can add accounts any time from the Add tab.';
     const total = document.getElementById('setup-networth');
     total.hidden = !count;
     total.innerText = meta.symbol + formatMoney(getPortfolioTotal(activeCurrency)) + ' ' + activeCurrency;

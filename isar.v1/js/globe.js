@@ -314,6 +314,7 @@ function renderExposure(holdings) {
     const others = holdings.filter(h => h.code !== activeCurrency);
     document.getElementById('exposure-card').hidden = !holdings.length;
     document.getElementById('exposure-controls').hidden = !others.length;
+    document.getElementById('exposure-note').hidden = !others.length;
     if (!others.length) {
         document.getElementById('exposure-result').innerText = 'All your money is in ' + activeCurrency + ', so exchange rates can\'t change your net worth in ' + activeCurrency + '.';
         return;
@@ -331,8 +332,8 @@ function renderExposure(holdings) {
         .reduce((sum, a) => sum + convertFromBase(convertToBase(a.balance, a.currency), activeCurrency), 0);
     const change = (selected.value + owed) * exposureMove / 100;
     const meta = CURRENCY_META[activeCurrency];
-    document.getElementById('exposure-result').innerText = !exposureMove ? 'Move the slider to see what would happen.'
-        : 'If ' + exposureCurrency + ' ' + (exposureMove < 0 ? 'falls ' : 'rises ') + Math.abs(exposureMove) + '%, your net worth would ' + (change < 0 ? 'drop ' : 'grow ') +
+    document.getElementById('exposure-result').innerText = !exposureMove ? 'Move the slider to try a change.'
+        : 'If ' + exposureCurrency + ' ' + (exposureMove < 0 ? 'fell ' : 'rose ') + Math.abs(exposureMove) + '%, your net worth would ' + (change < 0 ? 'drop ' : 'grow ') +
           'by ' + meta.symbol + Math.round(Math.abs(change)).toLocaleString('en-US') + ' ' + activeCurrency + '.';
 }
 
