@@ -23,7 +23,29 @@ function recordDailySnapshot() {
     const last = list[list.length - 1];
     if (last && last.date === snapshot.date) list[list.length - 1] = snapshot;
     else list.push(snapshot);
+    SAVED.snapshots = pruneSnapshots(SAVED.snapshots);
     saveData();
+}
+
+// Without this, one snapshot a day grows forever: thousands of records saved on the phone
+// (which caps this storage at about 5MB) and uploaded on every change. The graph doesn't
+// need that much detail far back, so beyond SNAPSHOT_DAILY_DAYS only the newest snapshot
+// of each 7-day stretch is kept. Recent records aren't touched.
+const SNAPSHOT_DAILY_DAYS = 730;
+
+function pruneSnapshots(list) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - SNAPSHOT_DAILY_DAYS);
+    const cutoffDate = localISODate(cutoff);
+    const weekOf = s => Math.floor(Date.parse(s.date + 'T00:00:00Z') / (7 * 24 * 60 * 60 * 1000));
+    const kept = [];
+    list.forEach(s => {
+        const previous = kept[kept.length - 1];
+        // An old record replaces the one before it when they fall in the same week.
+        if (s.date < cutoffDate && previous && previous.date < cutoffDate && weekOf(previous) === weekOf(s)) kept[kept.length - 1] = s;
+        else kept.push(s);
+    });
+    return kept;
 }
 
 // The daily summary: once a day, when the app opens, a short message with how your net worth

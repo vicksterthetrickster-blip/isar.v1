@@ -102,7 +102,7 @@ const USER = {
 // Default preferences on the Account screen (saved changes are applied in storage.js).
 // showSampleData: true shows the made-up demo accounts and history; false shows only
 // the user's own accounts ("start fresh").
-const USER_SETTINGS = { faceIdLock: true, notifications: true, showSampleData: true };
+const USER_SETTINGS = { notifications: true, showSampleData: true };   // faceIdLock returns with the App Store version
 
 // --- Portfolio valuation and currency conversion ---
 

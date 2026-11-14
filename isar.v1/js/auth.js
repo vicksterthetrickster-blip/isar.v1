@@ -183,6 +183,15 @@ async function signOut() {
         if (SUPABASE_CLIENT) {
             try { await SUPABASE_CLIENT.auth.signOut({ scope: 'local' }); } catch (e) {}
         }
+        // Privacy on shared devices: your data leaves the device with you (signing in brings it
+        // back from your account). Skipped if a change couldn't upload (offline), so that
+        // change isn't lost: it uploads the next time you sign in on this device.
+        if (!cloudMeta.dirtyAt) {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(CLOUD_META_KEY);
+            } catch (e) {}
+        }
     }
     writeSession(null);
 }

@@ -175,14 +175,10 @@
                     <div id="connect-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
                 </div>
 
-                <!-- Things added by hand (accounttypes.js) -->
+                <!-- Things added by hand (accounttypes.js): two rows, the type is picked in the form -->
                 <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                    <span style="font-size: 13px; font-weight: 600; color: #A1A1AA;">Add an asset by hand</span>
-                    <div id="add-assets-list" class="setup-list"></div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                    <span style="font-size: 13px; font-weight: 600; color: #A1A1AA;">Add a debt by hand</span>
-                    <div id="add-debts-list" class="setup-list"></div>
+                    <span style="font-size: 13px; font-weight: 600; color: #A1A1AA;">Add by hand</span>
+                    <div id="add-by-hand-list" class="setup-list"></div>
                 </div>
 
                 <button class="interactive-btn" onclick="resetSavedData()" style="margin-top: 12px; background: transparent; border: none; color: #71717A; font-size: 12px; text-decoration: underline; cursor: pointer; align-self: center;">Clear saved data</button>
@@ -394,9 +390,10 @@
                             <span class="row-label"><span class="row-icon">🔗</span><span id="acct-link-label"></span></span>
                             <span class="row-value" id="acct-link-value"></span>
                         </div>
-                        <div class="settings-row">
+                        <!-- Placeholder, honest about it: per-account settings get fleshed out later -->
+                        <div class="settings-row" style="cursor: default;">
                             <span class="row-label"><span class="row-icon">⚙️</span>Account settings</span>
-                            <span class="row-value">›</span>
+                            <span class="row-value" style="font-size: 12px;">Coming soon</span>
                         </div>
                     </div>
                 </div>
@@ -435,9 +432,10 @@
                             <span class="row-label"><span class="row-icon">🔗</span>Linked accounts</span>
                             <span class="row-value"><span id="profile-linked-count"></span> ›</span>
                         </div>
-                        <div class="settings-row" onclick="toggleSetting('faceIdLock')">
+                        <!-- Honest label: a real Face ID lock needs the App Store version (Capacitor) -->
+                        <div class="settings-row" style="cursor: default;">
                             <span class="row-label"><span class="row-icon">🔒</span>Face ID lock</span>
-                            <div class="toggle" data-setting="faceIdLock"></div>
+                            <span class="row-value" style="font-size: 12px;">Coming soon</span>
                         </div>
                     </div>
                 </div>

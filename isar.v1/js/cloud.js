@@ -186,6 +186,17 @@ function findDataFromBefore() {
     return best;
 }
 
+// Used by "Clear all saved data": the old copies go too, so they aren't offered back afterwards.
+// Other real accounts' data (ids with dashes) is never touched.
+function removeDataFromBefore() {
+    try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key === 'isar.savedData.v1' || /^isar\.savedData\.v1\.user-[a-z0-9]+$/.test(key)) localStorage.removeItem(key);
+        }
+    } catch (e) {}
+}
+
 function offerDataFromBefore() {
     if (cloudMeta.importOffered || SAVED.linkedAccounts.length) return;
     const found = findDataFromBefore();

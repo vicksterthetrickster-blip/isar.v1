@@ -275,8 +275,30 @@ function removeLinkedAccount(id) {
     });
 }
 
+// For a real account this clears the ONLINE copy too — otherwise the online copy would quietly
+// come back (or worse, the next change would upload an empty bundle over it on every device).
+// The demo only ever lives on this device, so it just clears that.
 function resetSavedData() {
-    showConfirmDialog('Clear all saved data?', 'Linked banks, history and settings go back to the defaults.', 'Clear', () => {
+    const real = getSession() && !getSession().demo;
+    showConfirmDialog('Clear all saved data?',
+        real ? 'Accounts, history and settings are deleted from your Isar account — on every device. This can\'t be undone.'
+             : 'Linked banks, history and settings go back to the defaults.',
+        'Clear', async () => {
+        if (real) {
+            if (!SUPABASE_CLIENT) return showToast('You\'re offline — try again when you\'re connected');
+            // Stop any upload that's waiting, then delete your row online.
+            if (cloudUploading) await cloudUploading;
+            clearTimeout(cloudUploadTimer);
+            try {
+                const { error } = await SUPABASE_CLIENT.from(CLOUD_TABLE).delete().eq('user_id', getSession().userId);
+                if (error) throw error;
+            } catch (e) {
+                console.warn('Could not clear the online copy:', e);
+                return showToast('Couldn\'t clear your account data — check your connection');
+            }
+            try { localStorage.removeItem(CLOUD_META_KEY); } catch (e) {}
+            removeDataFromBefore();     // old pretend-sign-in copies on this device go too (cloud.js)
+        }
         try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
         location.reload();
     });

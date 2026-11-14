@@ -113,38 +113,51 @@ function addManualAccount(kindId, name, amount, currency, linkedTo) {
     refreshAfterAccountChange();
 }
 
-// --- The Add tab: search everything first, then add assets and debts by hand further down ---
-let manualFormKind = null;
+// --- The Add tab: search everything first, then two "add by hand" rows further down ---
+// One row for assets, one for debts. What exactly it is (property, car, mortgage...)
+// is picked from a dropdown inside the form, instead of a long list on the tab.
 
-function manualKindsHTML(kinds) {
-    return kinds.map(id => {
-        const kind = MANUAL_KINDS[id];
-        return '<button class="setup-item" onclick="openManualForm(\'' + id + '\')">' +
-            bankIconHTML({ name: kind.label, color: kind.color, kind: id }, 32) +
-            '<span class="setup-item-name">' + kind.label + '<small>' + kind.hint + '</small></span>' +
+// Which kinds go in each row's dropdown. "Assets" here means everything you own,
+// so cash at home (cash) and retirement funds (investments) sit in it too.
+function manualKindsFor(debts) {
+    return Object.keys(MANUAL_KINDS).filter(id => (MANUAL_KINDS[id].group === 'debts') === debts);
+}
+
+function renderManualLists() {
+    const row = (label, hint, iconKind, debts) =>
+        '<button class="setup-item" onclick="openManualForm(' + debts + ')">' +
+            bankIconHTML({ name: label, color: MANUAL_KINDS[iconKind].color, kind: iconKind }, 32) +
+            '<span class="setup-item-name">' + label + '<small>' + hint + '</small></span>' +
             '<span class="setup-add">Add</span>' +
         '</button>';
-    }).join('');
+    document.getElementById('add-by-hand-list').innerHTML =
+        row('Add an asset', 'Property, car, valuables, cash, super…', 'property', false) +
+        row('Add a debt', 'Mortgage, credit card, loans…', 'personalLoan', true);
 }
 
-// Cash at home and retirement funds sit with the assets here, as things you add by hand.
-function renderManualLists() {
-    const ids = Object.keys(MANUAL_KINDS);
-    document.getElementById('add-assets-list').innerHTML = manualKindsHTML(ids.filter(id => MANUAL_KINDS[id].group !== 'debts'));
-    document.getElementById('add-debts-list').innerHTML = manualKindsHTML(ids.filter(id => MANUAL_KINDS[id].group === 'debts'));
-}
-
-function openManualForm(kindId) {
-    const kind = MANUAL_KINDS[kindId];
-    const debt = kind.group === 'debts';
-    const properties = ACCOUNTS.filter(a => a.kind === 'property');
-    manualFormKind = kindId;
-    showAccountForm('Add ' + kind.label.toLowerCase(),
+// `debts` = true for the debt form, false for the asset form.
+function openManualForm(debts) {
+    const kinds = manualKindsFor(debts);
+    showAccountForm(debts ? 'Add a debt' : 'Add an asset',
+        '<label class="form-label">What is it?<select id="manual-kind" class="form-select" onchange="renderManualKindExtras()">' +
+            kinds.map(id => '<option value="' + id + '">' + MANUAL_KINDS[id].label + '</option>').join('') +
+        '</select></label>' +
+        '<p id="manual-hint" class="form-note"></p>' +
         formInputHTML('manual-name', 'Name', '') +
-        formInputHTML('manual-amount', debt ? 'Amount owed' : 'Current value', '', 'number') +
+        formInputHTML('manual-amount', debts ? 'Amount owed' : 'Current value', '', 'number') +
         '<label class="form-label">Currency<select id="manual-currency" class="form-select">' + currencyOptionsHTML(activeCurrency) + '</select></label>' +
-        (kind.linkable && properties.length ? linkSelectHTML(properties, '') : ''),
+        '<div id="manual-extras"></div>',
         'saveManualAccount()');
+    renderManualKindExtras();
+}
+
+// Runs when the kind dropdown changes: updates the example line, and shows the
+// "Linked property" dropdown only for debts that can be tied to one (e.g. a mortgage).
+function renderManualKindExtras() {
+    const kind = MANUAL_KINDS[document.getElementById('manual-kind').value];
+    const properties = ACCOUNTS.filter(a => a.kind === 'property');
+    document.getElementById('manual-hint').innerText = kind.hint;
+    document.getElementById('manual-extras').innerHTML = kind.linkable && properties.length ? linkSelectHTML(properties, '') : '';
 }
 
 function linkSelectHTML(properties, selected) {
@@ -160,7 +173,7 @@ function saveManualAccount() {
     if (!name) return showAccountFormError('Enter a name.');
     if (raw === '' || !isFinite(amount) || amount < 0) return showAccountFormError('Enter an amount of 0 or more.');
     const link = document.getElementById('manual-link');
-    addManualAccount(manualFormKind, name, Math.round(amount * 100) / 100, document.getElementById('manual-currency').value, link ? link.value : '');
+    addManualAccount(document.getElementById('manual-kind').value, name, Math.round(amount * 100) / 100, document.getElementById('manual-currency').value, link ? link.value : '');
     closeModalAndReset();
     showToast(name + ' added');
 }
