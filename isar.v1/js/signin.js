@@ -24,19 +24,30 @@ function enterSignedInApp() {
 }
 
 // Runs a sign-in action with the button showing a spinner, and shows the error message if it fails.
-async function runAuthAction(form, errorId, action) {
+// `onSuccess` gets what the action returned (by default the app opens).
+async function runAuthAction(form, errorId, action, onSuccess) {
     const button = form.querySelector('button[type="submit"]');
     const error = document.getElementById(errorId);
     error.hidden = true;
     button.classList.add('loading');
     try {
-        await action();
-        enterSignedInApp();
+        const result = await action();
+        if (onSuccess) {
+            button.classList.remove('loading');
+            onSuccess(result);
+        } else {
+            enterSignedInApp();
+        }
     } catch (err) {
         button.classList.remove('loading');
         error.innerText = err.message;
         error.hidden = false;
     }
+}
+
+function showCheckEmail(text) {
+    document.getElementById('check-email-text').innerText = text;
+    showAuthView('auth-check-email');
 }
 
 function submitSignIn(event) {
@@ -51,7 +62,44 @@ function submitSignUp(event) {
     const name = document.getElementById('signup-name').value;
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
-    runAuthAction(event.target, 'signup-error', () => signUp(name, email, password));
+    // Usually Supabase asks you to confirm your email first. The link signs you in.
+    runAuthAction(event.target, 'signup-error', () => signUp(name, email, password), result => {
+        if (!result.needsConfirmation) return enterSignedInApp();
+        showCheckEmail('We sent a link to ' + result.email + '. Tap it to confirm your email and open Isar. On iPhone it opens in Safari: after that, sign in here with your email and password.');
+    });
+}
+
+function openForgotPassword() {
+    document.getElementById('forgot-email').value = document.getElementById('signin-email').value;
+    showAuthView('auth-forgot');
+}
+
+function submitForgotPassword(event) {
+    event.preventDefault();
+    const email = document.getElementById('forgot-email').value;
+    runAuthAction(event.target, 'forgot-error', () => requestPasswordReset(email), () => {
+        showCheckEmail('If there\'s an Isar account for ' + email.trim() + ', we\'ve sent it a link to choose a new password.');
+    });
+}
+
+// Opened from the reset link in the email (see watchSignIn in auth.js).
+function showNewPasswordView() {
+    document.getElementById('auth-screen').hidden = false;
+    showAuthView('auth-newpass');
+}
+
+function submitNewPassword(event) {
+    event.preventDefault();
+    const password = document.getElementById('newpass-password').value;
+    runAuthAction(event.target, 'newpass-error', async () => {
+        await setNewPassword(password);
+        await downloadCloudDataFor(getStoredSession());
+    }, () => location.replace(location.pathname));
+}
+
+// The session just written by auth.js (AUTH_SESSION is only read when the app starts).
+function getStoredSession() {
+    return readAuthStore().session;
 }
 
 async function enterDemo() {

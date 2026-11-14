@@ -105,7 +105,7 @@ function openPersonalDetails() {
             '<div class="settings-row" style="cursor: default;"><span class="row-label">Member since</span><span class="row-value">' + escapeHTML(USER.memberSince) + '</span></div>' +
             '<div class="settings-row" style="cursor: default;"><span class="row-label">Account type</span><span class="row-value">' + (demo ? 'Demo' : 'Personal') + '</span></div>' +
         '</div>' +
-        '<p class="info-note">' + (demo ? 'This is the demo profile. Changes last until you exit the demo.' : 'Your details are saved on this device for now.') + '</p>');
+        '<p class="info-note">' + (demo ? 'This is the demo profile. Changes last until you exit the demo.' : 'Your details are saved to your Isar account. Changing your email sends a confirmation link to the new address.') + '</p>');
 }
 
 async function savePersonalDetails(event) {
@@ -115,11 +115,12 @@ async function savePersonalDetails(event) {
     error.hidden = true;
     button.classList.add('loading');
     try {
-        await updateProfile(document.getElementById('personal-name').value, document.getElementById('personal-email').value);
+        const result = await updateProfile(document.getElementById('personal-name').value, document.getElementById('personal-email').value);
         Object.assign(USER, { name: getSession().name, email: getSession().email });
         renderUser();
         closeInfoScreen();
-        showToast('Your details have been saved');
+        // A new email only changes once it's confirmed from the new inbox.
+        showToast(result.emailPending ? 'Saved. Check your new email to confirm the change' : 'Your details have been saved');
     } catch (err) {
         error.innerText = err.message;
         error.hidden = false;

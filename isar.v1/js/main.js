@@ -59,13 +59,15 @@ function startApp() {
     // The daily summary waits for live rates, so it compares real numbers.
     fetchLiveRates(false).then(() => { if (!needsSetup()) showDailySummary(); });
     refreshHoldingPrices();             // live crypto prices (and, once the server exists, broker sync and share prices)
+    startCloudSync();                   // real accounts: compare with the online copy, then upload changes
     // Keep an open dashboard current without relying on a page reload.
-    setInterval(() => { fetchLiveRates(false); refreshHoldingPrices(); }, 5 * 60 * 1000);
+    setInterval(() => { fetchLiveRates(false); refreshHoldingPrices(); keepCloudInSync(); }, 5 * 60 * 1000);
 }
 
 // --- Start-up: runs last, once every function and variable above exists ---
 // Nobody signed in: only the sign-in screen. Signing in reloads the page and lands here again.
 // Signed in for the first time: the app starts underneath and the setup screens show on top.
+watchSignIn();                          // checks the sign-in with Supabase, and handles links from Isar's emails
 if (getSession()) {
     startApp();
     if (needsSetup()) showSetup();

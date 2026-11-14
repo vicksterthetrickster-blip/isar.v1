@@ -36,10 +36,12 @@ function loadSavedData() {
 
 const SAVED = loadSavedData();
 
-// Call after any change that should be remembered.
+// Call after any change that should be remembered. Saves on this device straight away; for real
+// accounts, cloud.js then uploads it to your account a moment later.
 function saveData() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(SAVED)); }
     catch (e) { console.warn('Could not save app data:', e); }
+    noteCloudChange();
 }
 
 Object.assign(USER_SETTINGS, SAVED.settings);
