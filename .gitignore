@@ -1,0 +1,15 @@
+# Private keys and secrets must NEVER be committed — anything pushed to GitHub is public,
+# and a leaked key can't be un-leaked, only replaced. Secrets belong in Vercel's
+# Environment Variables instead. See the Isar Obsidian note "Security lockdown".
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+
+# Local junk
+.DS_Store
+Thumbs.db
+node_modules/
+.vercel
