@@ -45,13 +45,29 @@ function openAbout() {
         ['Version', '1.0.0'],
         ['Exchange rates', 'European Central Bank, via Frankfurter'],
         ['Currencies', String(CURRENCIES.length)],
-        ['Banks and platforms', String(topBanks.length)]
+        ['Banks and platforms', String(topBanks.length)],
+        ['Isar server', '<span id="about-server">Checking…</span>']
     ];
+    checkServerStatus();
     openInfoScreen('About Isar',
         '<div class="info-hero"><img src="icons/icon-192.png" alt=""><strong>Isar</strong><span>One net worth. Every bank, every currency.</span></div>' +
         infoSectionHTML('Read-only, always', 'Isar shows you what you have. It holds no money, and it can never spend, transfer or withdraw any. Bank connections, when they arrive, will be read-only too.') +
         '<div class="settings-group">' + rows.map(row =>
-            '<div class="settings-row" style="cursor: default;"><span class="row-label">' + row[0] + '</span><span class="row-value" style="text-align: right;">' + escapeHTML(row[1]) + '</span></div>'
+            '<div class="settings-row" style="cursor: default;"><span class="row-label">' + row[0] + '</span><span class="row-value" style="text-align: right;">' + (row[0] === 'Isar server' ? row[1] : escapeHTML(row[1])) + '</span></div>'
         ).join('') + '</div>' +
         '<p class="info-note"><a href="https://logo.dev" target="_blank" rel="noopener">Logos provided by Logo.dev</a></p>');
+}
+
+// Asks the server (api/status.js) whether it's up. "Not deployed yet" is normal until the
+// api folder has been pushed, and always shows when the app runs from a local file.
+async function checkServerStatus() {
+    const el = () => document.getElementById('about-server');
+    try {
+        const reply = await fetch('/api/status', { cache: 'no-store' });
+        const status = await reply.json();
+        if (!status.ok) throw new Error('bad reply');
+        if (el()) el().innerText = 'Online · ' + status.region;
+    } catch (e) {
+        if (el()) el().innerText = 'Not deployed yet';
+    }
 }
