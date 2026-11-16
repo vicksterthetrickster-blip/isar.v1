@@ -306,7 +306,8 @@ function renderAccountTransactions(account) {
     }).join('') || '<div class="tx-empty">Nothing here yet</div>';
 
     document.getElementById('acct-tx-more').hidden = shown.length <= acctTxLimit;
-    const source = Array.isArray(account.transactions) || updatesOnly ? ''
+    const source = account.ebUid ? (Array.isArray(account.transactions) ? 'From your bank, read-only. Refreshed every few hours.' : 'Fetching transactions from your bank…')
+        : Array.isArray(account.transactions) || updatesOnly ? ''
         : usesMockTransactions(account) ? 'Sample transactions for the demo.'
         : 'These are the balance updates you\'ve entered. Individual transactions will appear here once this bank is connected.';
     document.getElementById('acct-tx-note').innerText = (converted ? 'Converted from ' + account.currency + ' using each day\'s exchange rate. ' : '') + source;

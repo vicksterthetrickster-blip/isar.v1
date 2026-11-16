@@ -255,6 +255,40 @@ async function finishBankConnect() {
 }
 
 
+// --- Transactions for a connected account ---
+// Banks allow only about four background reads a day (PSD2), so each account is read at most
+// every 6 hours. The first read asks for 2 years; many banks only give 90 days outside the
+// minutes after you approve them, so it falls back to that. Later reads go back a few days,
+// so pending payments that have since gone through are replaced, not doubled.
+const BANK_TX_REFRESH_MS = 6 * 60 * 60 * 1000;
+const BANK_TX_FIRST_DAYS = [730, 89];
+const BANK_TX_OVERLAP_DAYS = 10;
+
+function isoDaysAgo(days) {
+    const day = new Date();
+    day.setDate(day.getDate() - days);
+    return localISODate(day);
+}
+
+async function syncBankTransactions(account) {
+    const first = !Array.isArray(account.transactions);
+    if (!first && account.txFetchedAt && Date.now() - account.txFetchedAt < BANK_TX_REFRESH_MS) return false;
+
+    const tries = first ? BANK_TX_FIRST_DAYS.map(isoDaysAgo) : [isoDaysAgo(BANK_TX_OVERLAP_DAYS)];
+    for (const from of tries) {
+        try {
+            const data = await callServer('/api/bank-transactions?uid=' + encodeURIComponent(account.ebUid) + '&from=' + from);
+            const kept = (account.transactions || []).filter(t => t.date < from);
+            account.transactions = kept.concat(data.transactions);
+            account.txFetchedAt = Date.now();
+            return true;
+        } catch (e) {
+            if (e.message === 'consent_expired') return false;
+        }
+    }
+    return false;
+}
+
 // --- Step 3: keep balances fresh ---
 // Turns each synced bank account into an Isar account, matched by its `ebUid` so the same
 // account is updated rather than duplicated. From here on it behaves like any other account:
@@ -302,7 +336,11 @@ async function syncConnectedBanks() {
             }
         });
 
-        if (changed) { saveLinkedAccounts(); refreshAfterAccountChange(); }
+        for (const account of ACCOUNTS.filter(a => a.ebUid)) {
+            if (await syncBankTransactions(account)) changed = true;
+        }
+
+        if (changed) { saveLinkedAccounts(); refreshAfterAccountChange(); refreshAccountTransactions(); }
         if (needsReconnect) showToast('A bank needs approving again — reconnect it in the Add tab');
     } catch (e) {
         // Offline, or no banks connected yet: nothing to report, the app works as before.
