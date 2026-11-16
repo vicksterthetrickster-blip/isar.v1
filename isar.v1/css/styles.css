@@ -211,6 +211,7 @@
         .auth-sub { font-size: 14px; color: #A1A1AA; margin-bottom: 12px; }
         .auth-input { background: #121216; border: 1px solid #27272A; border-radius: 14px; padding: 15px 14px; color: #fff; font-size: 16px; outline: none; transition: border-color 0.15s; }
         .auth-input:focus { border-color: #00FF85; }
+        .auth-code { text-align: center; font-size: 24px; font-weight: 700; letter-spacing: 6px; }
         .auth-error { font-size: 13px; color: #FF4D6D; }
         .auth-note { font-size: 12px; color: #71717A; text-align: center; margin-top: 4px; }
 

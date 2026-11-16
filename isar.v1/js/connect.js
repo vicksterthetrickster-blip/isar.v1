@@ -43,21 +43,31 @@ function filterBanks() {
         return;
     }
 
+    // Real banks you can connect come first; the rest are added by typing the balance.
+    const connectable = connectableBankMatches(query, filterBanks);
     const filtered = searchBanks(query);
 
-    if (filtered.length === 0) {
+    if (!connectable.length && !filtered.length) {
         resultsBox.innerHTML = '<div style="padding: 12px 14px; font-size: 13px; color: #71717A;">Nothing matches your search</div>';
         resultsBox.style.display = 'block';
         return;
     }
 
-    resultsBox.innerHTML = filtered.map(b => `
+    resultsBox.innerHTML = connectable.map(x => `
+        <div class="bank-result" onclick="startSearchedBankConnect(${x.index})">
+            <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                ${connectableBankIcon(x.bank, 28)}
+                <span style="font-size: 14px; font-weight: 600; color: #fff;">${highlightBankName(escapeHTML(x.bank.name), query)}<span style="display: block; font-size: 11px; font-weight: 500; color: #71717A;">Updates by itself · read-only</span></span>
+            </div>
+            <span style="font-size: 12px; color: #00FF85; font-weight: 600;">Connect</span>
+        </div>
+    `).join('') + filtered.map(b => `
         <div class="bank-result" onclick="promptConnect(${topBanks.indexOf(b)})">
             <div style="display: flex; align-items: center; gap: 10px;">
                 ${bankIconHTML(b, 28)}
-                <span style="font-size: 14px; font-weight: 600; color: #fff;">${highlightBankName(b.name, query)}</span>
+                <span style="font-size: 14px; font-weight: 600; color: #fff;">${highlightBankName(b.name, query)}<span style="display: block; font-size: 11px; font-weight: 500; color: #71717A;">Enter the balance yourself</span></span>
             </div>
-            <span style="font-size: 12px; color: ${isBankLinked(b.name) ? '#71717A' : '#00FF85'}; font-weight: 600;">${isBankLinked(b.name) ? 'Linked ✓' : 'Connect'}</span>
+            <span style="font-size: 12px; color: ${isBankLinked(b.name) ? '#71717A' : '#00FF85'}; font-weight: 600;">${isBankLinked(b.name) ? 'Added ✓' : 'Add'}</span>
         </div>
     `).join('');
     resultsBox.scrollTop = 0;
@@ -167,7 +177,7 @@ function saveLinkedAccounts() {
         addedDate: a.addedDate, history: a.history, historySource: a.historySource,
         group: a.group, kind: a.kind, linkedTo: a.linkedTo,
         holdings: a.holdings, holdingsSource: a.holdingsSource,     // investments only (holdings.js)
-        ebUid: a.ebUid                                              // connected banks only (bankconnect.js)
+        ebUid: a.ebUid, logoUrl: a.logoUrl                          // connected banks only (bankconnect.js)
     }));
     saveData();
 }

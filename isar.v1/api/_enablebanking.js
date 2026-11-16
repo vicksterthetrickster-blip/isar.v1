@@ -8,10 +8,11 @@
 //
 // The private key lives ONLY in Vercel's environment variables, never in this code.
 
-import { createSign } from 'crypto';
+import { createSign, createHmac, createHash, randomBytes, timingSafeEqual } from 'crypto';
 
 const EB_BASE = 'https://api.enablebanking.com';
 const JWT_LIFETIME_SECONDS = 3600;        // 1 hour (their maximum is 24)
+const STATE_LIFETIME_MS = 30 * 60 * 1000; // time allowed at the bank, plus signing in on return
 
 // JWTs use "base64url": like base64, but safe inside a web address.
 function base64url(input) {
@@ -41,6 +42,34 @@ function makeJWT() {
     const signature = signer.sign(readPrivateKey(), 'base64')
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     return unsigned + '.' + signature;
+}
+
+// --- The `state` ticket that travels to the bank and back ---
+// Signed by this server and naming the Isar person who started the connection. Because the
+// server can check it alone, the returned code can be saved even when the bank sends you back
+// to a different browser than the one you left from (on iPhone: Safari, not the home-screen
+// app). And it can only ever be saved to the person named in it.
+// The signing key is derived from the private key, so there's no extra secret to manage.
+function stateKey() {
+    return createHash('sha256').update('isar-bank-state:' + readPrivateKey()).digest();
+}
+
+export function makeState(userId) {
+    const body = base64url(JSON.stringify({ u: userId, n: randomBytes(12).toString('hex'), e: Date.now() + STATE_LIFETIME_MS }));
+    return body + '.' + createHmac('sha256', stateKey()).update(body).digest('base64url');
+}
+
+export function checkState(state, userId) {
+    const [body, signature] = String(state || '').split('.');
+    if (!body || !signature) return false;
+    const expected = createHmac('sha256', stateKey()).update(body).digest('base64url');
+    if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false;
+    try {
+        const data = JSON.parse(Buffer.from(body, 'base64url').toString());
+        return data.u === userId && data.e > Date.now();
+    } catch (e) {
+        return false;
+    }
 }
 
 // Calls the Enable Banking API. Throws a readable error if it refuses, so the

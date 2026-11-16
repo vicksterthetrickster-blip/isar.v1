@@ -2,7 +2,8 @@
 // the bank's signature colour, so every bank looks the same "Isar style".
 //
 // How a logo is made (once per bank, then saved on this device):
-//   1. download the logo from logo.dev, looked up by the bank's website (`domain` in data.js)
+//   1. download the logo: from the bank provider when it supplies one (`logoUrl`, e.g. Enable
+//      Banking's for European banks), otherwise from logo.dev by the bank's website (`domain`)
 //   2. remove its background and redraw the logo itself in off-white (knockOutLogo)
 //   3. crop it and centre it at the same size and padding as every other logo
 // Until a logo is ready (or if it can't be made), the tile shows the bank's first letter instead.
@@ -16,9 +17,10 @@ const LOGO_CACHE_KEY = 'isar.logos.v1';
 const LOGO_SIZE = 96;                          // finished logo images are 96x96 (sharp at 2-3x)
 const LOGO_FILL = 0.58;                        // the logo fills 58% of the tile, like every other
 
-const logoCache = loadLogoCache();             // domain -> finished image (data: URL)
-const logoPending = {};                        // domain -> true while being made
-const logoFailed = {};                         // domain -> true if it couldn't be made (this session)
+// A logo's "key" is the bank's website (logo.dev) or the full https address of its logo.
+const logoCache = loadLogoCache();             // key -> finished image (data: URL)
+const logoPending = {};                        // key -> true while being made
+const logoFailed = {};                         // key -> true if it couldn't be made (this session)
 
 function loadLogoCache() {
     try { return JSON.parse(localStorage.getItem(LOGO_CACHE_KEY)) || {}; } catch (e) { return {}; }
@@ -48,48 +50,49 @@ function isLightColor(hex) {
     return luminance > 0.68;
 }
 
-// The icon for a bank or account (anything with name + color, and optionally domain / bankName).
+// The icon for a bank or account (anything with name + color, and optionally logoUrl / domain / bankName).
 // A bank with a `monogram` (no logo of its own) uses those letters and its own colour.
 function bankIconHTML(item, size) {
     const bank = bankForIcon(item);
     const monogram = bank && bank.monogram;
     const color = monogram ? bank.color : item.color;
-    const domain = monogram ? null : logoDomainFor(item);
+    const logoKey = monogram ? null : (item.logoUrl || logoDomainFor(item));
     const light = isLightColor(color);
     const letter = monogram || escapeHTML(Array.from(item.name || '?')[0].toUpperCase());
     const kind = !item.domain && MANUAL_KINDS[item.kind];      // property, loans etc. use a line icon
-    const logo = domain && logoCache[domain];
-    if (domain && !logo) requestLogo(domain);
-    return '<div class="bank-icon' + (light ? ' light' : '') + '"' + (domain ? ' data-logo-domain="' + escapeHTML(domain) + '"' : '') +
+    const logo = logoKey && logoCache[logoKey];
+    if (logoKey && !logo) requestLogo(logoKey);
+    return '<div class="bank-icon' + (light ? ' light' : '') + '"' + (logoKey ? ' data-logo-key="' + escapeHTML(logoKey) + '"' : '') +
         ' style="width: ' + size + 'px; height: ' + size + 'px; border-radius: ' + Math.round(size * 0.3) + 'px; background: ' + color + '; font-size: ' + Math.round(size * (monogram ? 0.34 : 0.42)) + 'px;">' +
         (logo ? '<img src="' + logo + '" alt="">' : kind ? kindIconHTML(kind.icon) : letter) +
     '</div>';
 }
 
 // Starts making a logo in the background; when it's ready, every tile showing that bank updates.
-function requestLogo(domain) {
-    if (!LOGO_DEV_TOKEN || logoPending[domain] || logoFailed[domain]) return;
-    logoPending[domain] = true;
-    makeLogo(domain).then(dataUrl => {
-        delete logoPending[domain];
-        if (!dataUrl) { logoFailed[domain] = true; return; }
-        logoCache[domain] = dataUrl;
+function requestLogo(key) {
+    const direct = key.startsWith('https://');
+    if ((!direct && !LOGO_DEV_TOKEN) || logoPending[key] || logoFailed[key]) return;
+    logoPending[key] = true;
+    makeLogo(direct ? key : 'https://img.logo.dev/' + encodeURIComponent(key) + '?token=' + LOGO_DEV_TOKEN + '&size=128&format=png&fallback=404').then(dataUrl => {
+        delete logoPending[key];
+        if (!dataUrl) { logoFailed[key] = true; return; }
+        logoCache[key] = dataUrl;
         saveLogoCache();
-        document.querySelectorAll('[data-logo-domain="' + domain + '"]').forEach(el => {
+        document.querySelectorAll('[data-logo-key="' + CSS.escape(key) + '"]').forEach(el => {
             el.innerHTML = '<img src="' + dataUrl + '" alt="">';
         });
     });
 }
 
-function makeLogo(domain) {
+function makeLogo(src) {
     return new Promise(resolve => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';          // needed to read the pixels (logo.dev allows it)
+        img.crossOrigin = 'anonymous';          // needed to read the pixels (logo.dev and Enable Banking allow it)
         img.onload = () => {
             try { resolve(knockOutLogo(img)); } catch (e) { resolve(null); }
         };
         img.onerror = () => resolve(null);
-        img.src = 'https://img.logo.dev/' + encodeURIComponent(domain) + '?token=' + LOGO_DEV_TOKEN + '&size=128&format=png&fallback=404';
+        img.src = src;
     });
 }
 
@@ -100,20 +103,27 @@ function knockOutLogo(img) {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = N;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, N, N);
+    // Keep the logo's own shape: wide wordmarks (most bank providers' logos) aren't squashed.
+    const aspect = img.naturalWidth / img.naturalHeight || 1;
+    const dw = Math.round(aspect >= 1 ? N : N * aspect), dh = Math.round(aspect >= 1 ? N / aspect : N);
+    const dx = Math.floor((N - dw) / 2), dy = Math.floor((N - dh) / 2);
+    ctx.drawImage(img, dx, dy, dw, dh);
     const image = ctx.getImageData(0, 0, N, N), px = image.data;
 
-    // The background colour: the corners, or (if the corners are see-through, as with a rounded
-    // app-icon style logo) a little way in from the corners.
-    const sample = inset => {
-        const at = [[inset, inset], [N - 1 - inset, inset], [inset, N - 1 - inset], [N - 1 - inset, N - 1 - inset]];
-        let r = 0, g = 0, b = 0, a = 0;
-        at.forEach(([x, y]) => { const i = (y * N + x) * 4; r += px[i]; g += px[i + 1]; b += px[i + 2]; a += px[i + 3]; });
-        return { r: r / 4, g: g / 4, b: b / 4, a: a / 4 };
+    // The background, judged from the logo's whole edge (tightly cropped wordmarks can touch a
+    // corner, so single corner pixels mislead). Mostly see-through edge: no background. Otherwise
+    // it's the average colour of the solid edge pixels (rounded app-icon logos are see-through
+    // only at the corners).
+    let edgeCount = 0, edgeSolid = 0, r = 0, g = 0, b = 0;
+    const edgePixel = (x, y) => {
+        const i = (y * N + x) * 4;
+        edgeCount++;
+        if (px[i + 3] >= 40) { edgeSolid++; r += px[i]; g += px[i + 1]; b += px[i + 2]; }
     };
-    let bg = sample(1);
-    if (bg.a < 40) bg = sample(Math.round(N * 0.2));
-    const transparentBg = bg.a < 40;
+    for (let x = dx; x < dx + dw; x++) { edgePixel(x, dy); edgePixel(x, dy + dh - 1); }
+    for (let y = dy + 1; y < dy + dh - 1; y++) { edgePixel(dx, y); edgePixel(dx + dw - 1, y); }
+    const transparentBg = edgeSolid < edgeCount * 0.5;
+    const bg = { r: r / edgeSolid, g: g / edgeSolid, b: b / edgeSolid };
 
     // Each pixel becomes off-white, as solid as it is different from the background.
     let solid = 0, minX = N, minY = N, maxX = -1, maxY = -1;
@@ -135,12 +145,13 @@ function knockOutLogo(img) {
         }
     }
     // Nothing left, or almost everything solid (no real background to remove): not usable.
-    if (maxX < 0 || solid > N * N * 0.6) return null;
+    if (maxX < 0 || solid > dw * dh * 0.6) return null;
     ctx.putImageData(image, 0, 0);
 
-    // Crop to the logo and centre it at the standard size.
+    // Crop to the logo and centre it at the standard size. Wide wordmarks get more of the
+    // width, or their letters would be too small to read.
     const w = maxX - minX + 1, h = maxY - minY + 1;
-    const scale = (LOGO_SIZE * LOGO_FILL) / Math.max(w, h);
+    const scale = (LOGO_SIZE * (w > h * 2 ? 0.84 : LOGO_FILL)) / Math.max(w, h);
     const out = document.createElement('canvas');
     out.width = out.height = LOGO_SIZE;
     const octx = out.getContext('2d');

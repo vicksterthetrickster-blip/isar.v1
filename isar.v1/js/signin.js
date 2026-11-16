@@ -7,6 +7,11 @@
 
 function showAuthScreen() {
     document.getElementById('auth-screen').hidden = false;
+    // Back from approving a bank in a browser that isn't signed in: signing in finishes it.
+    if (pendingBankReturn()) {
+        document.getElementById('signin-sub').innerText = 'Sign in to finish connecting your bank.';
+        return showAuthView('auth-signin');
+    }
     showAuthView('auth-welcome');
 }
 
@@ -54,7 +59,18 @@ function submitSignIn(event) {
     event.preventDefault();
     const email = document.getElementById('signin-email').value;
     const password = document.getElementById('signin-password').value;
-    runAuthAction(event.target, 'signin-error', () => signIn(email, password));
+    // Not confirmed yet: go to the code screen instead of a dead end.
+    runAuthAction(event.target, 'signin-error', async () => {
+        try {
+            return await signIn(email, password);
+        } catch (err) {
+            if (!err.unconfirmed) throw err;
+            return { unconfirmed: true };
+        }
+    }, result => {
+        if (!result.unconfirmed) return enterSignedInApp();
+        showVerifyView(email, 'Your email isn\'t confirmed yet. Enter the code from the email we sent to ' + email.trim() + '.');
+    });
 }
 
 function submitSignUp(event) {
@@ -62,11 +78,42 @@ function submitSignUp(event) {
     const name = document.getElementById('signup-name').value;
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
-    // Usually Supabase asks you to confirm your email first. The link signs you in.
     runAuthAction(event.target, 'signup-error', () => signUp(name, email, password), result => {
         if (!result.needsConfirmation) return enterSignedInApp();
-        showCheckEmail('We sent a link to ' + result.email + '. Tap it to confirm your email and open Isar. On iPhone it opens in Safari: after that, sign in here with your email and password.');
+        showVerifyView(result.email, 'We sent a code to ' + result.email + '. Enter it here to confirm your email.');
     });
+}
+
+// --- Confirming the email with a code, without leaving the app ---
+let verifyEmail = '';
+
+function showVerifyView(email, text) {
+    verifyEmail = email.trim().toLowerCase();
+    document.getElementById('verify-text').innerText = text;
+    document.getElementById('verify-code').value = '';
+    document.getElementById('verify-resend').innerText = 'Send a new code';
+    showAuthView('auth-verify');
+}
+
+function submitVerifyCode(event) {
+    event.preventDefault();
+    const code = document.getElementById('verify-code').value;
+    runAuthAction(event.target, 'verify-error', () => confirmSignUpCode(verifyEmail, code));
+}
+
+async function resendVerifyCode() {
+    const button = document.getElementById('verify-resend');
+    const error = document.getElementById('verify-error');
+    error.hidden = true;
+    button.innerText = 'Sending…';
+    try {
+        await resendSignUpCode(verifyEmail);
+        button.innerText = 'New code sent — check your inbox';
+    } catch (err) {
+        button.innerText = 'Send a new code';
+        error.innerText = err.message;
+        error.hidden = false;
+    }
 }
 
 function openForgotPassword() {

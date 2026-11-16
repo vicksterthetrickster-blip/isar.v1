@@ -90,11 +90,18 @@ function refreshSetup() {
 function renderSetupBanks() {
     const query = document.getElementById('setup-bank-search').value.trim().toLowerCase();
     const banks = query ? searchBanks(query) : suggestedBanksFor(activeCurrency, 5);
+    // Real banks you can connect come first (same search as the Add tab).
+    const connectable = query ? connectableBankMatches(query, renderSetupBanks) : [];
     document.getElementById('setup-banks-label').innerText = query ? 'Results' : 'Popular banks';
-    document.getElementById('setup-bank-list').innerHTML = banks.map(b => {
+    document.getElementById('setup-bank-list').innerHTML = connectable.map(x =>
+        '<button class="setup-item" onclick="startSearchedBankConnect(' + x.index + ')">' + connectableBankIcon(x.bank, 32) +
+            '<span class="setup-item-name">' + highlightBankName(escapeHTML(x.bank.name), query) + '<small>Updates by itself · read-only</small></span>' +
+            '<span class="setup-add">Connect</span>' +
+        '</button>'
+    ).join('') + banks.map(b => {
         const linked = isBankLinked(b.name);
         return '<button class="setup-item" onclick="promptConnect(' + topBanks.indexOf(b) + ')">' + bankIconHTML(b, 32) +
-            '<span class="setup-item-name">' + (query ? highlightBankName(b.name, query) : escapeHTML(b.name)) + '</span>' +
+            '<span class="setup-item-name">' + (query ? highlightBankName(b.name, query) : escapeHTML(b.name)) + '<small>Enter the balance yourself</small></span>' +
             '<span class="setup-add' + (linked ? ' done' : '') + '">' + (linked ? 'Added ✓' : 'Add') + '</span>' +
         '</button>';
     }).join('') || '<div class="setup-empty">No banks match your search</div>';

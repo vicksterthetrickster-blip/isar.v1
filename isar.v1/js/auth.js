@@ -6,7 +6,7 @@
 // your password. The demo doesn't use Supabase at all: it stays on this device.
 //
 // The rest of the app only uses the functions below (signUp, signIn, signOut, startDemo,
-// getSession, updateProfile, requestPasswordReset, setNewPassword).
+// getSession, updateProfile, requestPasswordReset, setNewPassword, confirmSignUpCode, resendSignUpCode).
 
 // Your Supabase project. Both are MEANT to be public: the key only identifies the app.
 // What protects your data is your password plus the database rules ("each person can only
@@ -16,6 +16,10 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_JfRW2WmTKhkH9Mg0TCLWtg_QznUHiUr
 
 // True when Isar was opened from a password-reset email. Read before Supabase tidies the address.
 const OPENED_FROM_RESET_LINK = /type=recovery/.test(location.hash);
+
+// True while a sign-in started on this screen runs: it opens the app itself once your data has
+// downloaded, so watchSignIn mustn't reload the page halfway through.
+let signingInHere = false;
 
 // The connection to Supabase. Null if its code couldn't load (e.g. offline on first open):
 // the app still opens from this device's copy, but signing in has to wait.
@@ -74,7 +78,8 @@ function requireSupabase() {
 function friendlyAuthError(error) {
     const message = (error && error.message) || '';
     if (/invalid login credentials/i.test(message)) return new Error('Wrong email or password.');
-    if (/email not confirmed/i.test(message)) return new Error('Please confirm your email first: tap the link we sent you.');
+    if (/email not confirmed/i.test(message)) return Object.assign(new Error('Please confirm your email first.'), { unconfirmed: true });
+    if (/expired|invalid/i.test(message) && /otp|token|code/i.test(message)) return new Error('That code is wrong or has expired. Check the newest email, or send a new code.');
     if (/already registered|already exists/i.test(message)) return new Error('There\'s already an account with that email. Sign in instead.');
     if (/rate limit|too many/i.test(message)) return new Error('Too many attempts. Please wait a few minutes and try again.');
     if (/password/i.test(message) && /weak|short|characters/i.test(message)) return new Error('Please choose a stronger password.');
@@ -120,12 +125,36 @@ async function signIn(email, password) {
     if (!password) throw new Error('Enter your password.');
     requireSupabase();
 
+    signingInHere = true;
     const { data, error } = await SUPABASE_CLIENT.auth.signInWithPassword({ email: email, password: password });
-    if (error) throw friendlyAuthError(error);
+    if (error) { signingInHere = false; throw friendlyAuthError(error); }
     const session = sessionFromUser(data.user);
     writeSession(session);
     await downloadCloudDataFor(session);      // so the app opens with your data straight away (cloud.js)
     return session;
+}
+
+// Confirms a new account with the code from the confirmation email. Typing the code keeps you
+// in the app you signed up in (on iPhone, tapping the email's link opens Safari instead).
+async function confirmSignUpCode(email, code) {
+    email = email.trim().toLowerCase();
+    code = code.replace(/\s/g, '');
+    if (!/^\d{6,10}$/.test(code)) throw new Error('Enter the code from the email.');
+    requireSupabase();
+    signingInHere = true;
+    let { data, error } = await SUPABASE_CLIENT.auth.verifyOtp({ email: email, token: code, type: 'email' });
+    if (error) ({ data, error } = await SUPABASE_CLIENT.auth.verifyOtp({ email: email, token: code, type: 'signup' }));
+    if (error) { signingInHere = false; throw friendlyAuthError(error); }
+    const session = sessionFromUser(data.user);
+    writeSession(session);
+    await downloadCloudDataFor(session);
+    return session;
+}
+
+async function resendSignUpCode(email) {
+    requireSupabase();
+    const { error } = await SUPABASE_CLIENT.auth.resend({ type: 'signup', email: email.trim().toLowerCase() });
+    if (error) throw friendlyAuthError(error);
 }
 
 // The demo: a separate, signed-in-like session that always shows the sample data.
@@ -207,7 +236,7 @@ function watchSignIn() {
             return;
         }
         // The confirmation link was opened: you're signed in, so open the app.
-        if (event === 'SIGNED_IN' && supabaseSession && !AUTH_SESSION && !OPENED_FROM_RESET_LINK) {
+        if (event === 'SIGNED_IN' && supabaseSession && !AUTH_SESSION && !OPENED_FROM_RESET_LINK && !signingInHere) {
             writeSession(sessionFromUser(supabaseSession.user));
             setTimeout(() => location.replace(location.pathname), 0);
         }

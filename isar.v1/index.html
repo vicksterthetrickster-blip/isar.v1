@@ -548,7 +548,7 @@
             <div id="setup-accounts" class="auth-view" hidden>
                 <button type="button" class="auth-back" onclick="showSetupStep(1)" aria-label="Back">‹</button>
                 <h2 class="auth-heading">Add your first account</h2>
-                <p class="auth-sub">Find your bank, then enter its balance. Add as many as you like.</p>
+                <p class="auth-sub">Search for your bank. Banks marked Connect update by themselves; the rest you enter by hand.</p>
                 <div id="setup-added" class="setup-list"></div>
                 <input class="auth-input" id="setup-bank-search" type="search" placeholder="Search banks, brokers and crypto" oninput="renderSetupBanks()" autocomplete="off">
                 <div class="setup-list-label" id="setup-banks-label">Popular banks</div>
@@ -590,7 +590,7 @@
             <form id="auth-signin" class="auth-view" hidden onsubmit="submitSignIn(event)" novalidate>
                 <button type="button" class="auth-back" onclick="showAuthView('auth-welcome')" aria-label="Back">‹</button>
                 <h2 class="auth-heading">Welcome back</h2>
-                <p class="auth-sub">Sign in to see your net worth.</p>
+                <p class="auth-sub" id="signin-sub">Sign in to see your net worth.</p>
                 <input class="auth-input" id="signin-email" type="email" placeholder="Email" autocomplete="username" inputmode="email" autocapitalize="off" required>
                 <input class="auth-input" id="signin-password" type="password" placeholder="Password" autocomplete="current-password" required>
                 <p class="auth-error" id="signin-error" hidden></p>
@@ -619,6 +619,17 @@
                 <button class="auth-btn secondary" onclick="showAuthView('auth-signin')">Back to sign in</button>
             </div>
 
+            <!-- After creating an account: type the code from the email (signin.js), so you stay in this app -->
+            <form id="auth-verify" class="auth-view" hidden onsubmit="submitVerifyCode(event)" novalidate>
+                <button type="button" class="auth-back" onclick="showAuthView('auth-welcome')" aria-label="Back">‹</button>
+                <h2 class="auth-heading">Check your email</h2>
+                <p class="auth-sub" id="verify-text"></p>
+                <input class="auth-input auth-code" id="verify-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Code" required>
+                <p class="auth-error" id="verify-error" hidden></p>
+                <button class="auth-btn primary" type="submit">Confirm and open Isar</button>
+                <button type="button" class="auth-link" id="verify-resend" onclick="resendVerifyCode()">Send a new code</button>
+            </form>
+
             <!-- Opened from the reset link in the email -->
             <form id="auth-newpass" class="auth-view" hidden onsubmit="submitNewPassword(event)" novalidate>
                 <h2 class="auth-heading">Choose a new password</h2>
@@ -638,7 +649,7 @@
                 <input class="auth-input" id="signup-password" type="password" placeholder="Password (8+ characters)" autocomplete="new-password" required>
                 <p class="auth-error" id="signup-error" hidden></p>
                 <button class="auth-btn primary" type="submit">Create account</button>
-                <p class="auth-note">We'll email you a link to confirm your address. Your data is saved to your account, so it's on every device you sign in on.</p>
+                <p class="auth-note">We'll email you a code to confirm your address. Your data is saved to your account, so it's on every device you sign in on.</p>
             </form>
         </div>
 

@@ -3,11 +3,11 @@
 // The app calls this with the person's Isar sign-in pass and the bank they picked.
 // The server asks Enable Banking to begin an ACCOUNT INFORMATION consent (reading only —
 // payments are a different permission Isar never requests and isn't registered for), and
-// replies with the bank's own authorisation page URL plus a one-time `state` code.
-// The app keeps `state` and sends the person to the bank. Nobody's password is involved:
+// replies with the bank's own authorisation page URL. The bank carries a signed `state`
+// ticket there and back, which bank-complete checks. Nobody's password is involved:
 // they log in on the bank's own site.
 
-import { ebRequest, requireUser } from './_enablebanking.js';
+import { ebRequest, requireUser, makeState } from './_enablebanking.js';
 
 const CONSENT_DAYS = 89;        // how long the bank access lasts before re-approval (banks may cap it lower)
 
@@ -26,7 +26,7 @@ export default async function handler(request, response) {
 
     // The person returns to the app's own address, which is whitelisted at Enable Banking.
     const redirectUrl = 'https://' + request.headers.host + '/';
-    const state = crypto.randomUUID();      // anti-forgery ticket: the app checks it on return
+    const state = makeState(user.id);       // anti-forgery ticket naming this person: bank-complete checks it
 
     try {
         const auth = await ebRequest('/auth', {

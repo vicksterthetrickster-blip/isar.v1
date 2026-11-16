@@ -62,6 +62,8 @@ function startApp() {
     startCloudSync();                   // real accounts: compare with the online copy, then upload changes
     // Coming back from a bank's approval page: save it, then pull the first balances.
     finishBankConnect().then(() => syncConnectedBanks());
+    // Back in the app after connecting a bank elsewhere (e.g. in Safari): show it straight away.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncConnectedBanks(); });
     // Keep an open dashboard current without relying on a page reload.
     setInterval(() => { fetchLiveRates(false); refreshHoldingPrices(); keepCloudInSync(); syncConnectedBanks(); }, 5 * 60 * 1000);
 }
@@ -69,6 +71,7 @@ function startApp() {
 // --- Start-up: runs last, once every function and variable above exists ---
 // Nobody signed in: only the sign-in screen. Signing in reloads the page and lands here again.
 // Signed in for the first time: the app starts underneath and the setup screens show on top.
+takeBankReturn();                       // back from a bank: keep its code until someone is signed in (bankconnect.js)
 watchSignIn();                          // checks the sign-in with Supabase, and handles links from Isar's emails
 if (getSession()) {
     startApp();

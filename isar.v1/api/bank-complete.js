@@ -8,7 +8,7 @@
 // passes their own sign-in along to the database, so the database's "own rows only" rules
 // make it impossible to file this under anyone else's account. No master key exists.
 
-import { ebRequest, requireUser, saveRowAsUser } from './_enablebanking.js';
+import { ebRequest, requireUser, saveRowAsUser, checkState } from './_enablebanking.js';
 
 export default async function handler(request, response) {
     response.setHeader('Cache-Control', 'no-store');
@@ -19,6 +19,10 @@ export default async function handler(request, response) {
 
     const code = String((request.body && request.body.code) || '');
     if (!code) return response.status(400).json({ ok: false, error: 'Missing the code from the bank.' });
+    // Only a connection this server started, for THIS person, in the last 30 minutes.
+    if (!checkState(request.body && request.body.state, user.id)) {
+        return response.status(400).json({ ok: false, error: 'That bank approval has expired or was started from another Isar account. Please connect again.' });
+    }
 
     try {
         const session = await ebRequest('/sessions', { method: 'POST', body: { code: code } });

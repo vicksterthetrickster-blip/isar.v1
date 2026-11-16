@@ -115,6 +115,17 @@ function showConfirmDialog(title, message, confirmLabel, onConfirm) {
     document.getElementById('secure-modal').style.display = 'flex';
 }
 
+// A message with a single OK button.
+function showNotice(title, message) {
+    document.getElementById('modal-content-box').innerHTML =
+        '<div>' +
+            '<h3 style="font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px;">' + escapeHTML(title) + '</h3>' +
+            '<p style="font-size: 13px; color: #A1A1AA; line-height: 1.4;">' + escapeHTML(message) + '</p>' +
+        '</div>' +
+        '<button onclick="closeModalAndReset()" class="interactive-btn" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 14px; font-weight: 700; width: 100%;">OK</button>';
+    document.getElementById('secure-modal').style.display = 'flex';
+}
+
 function cancelConfirmDialog() {
     pendingConfirm = null;
     closeModalAndReset();
