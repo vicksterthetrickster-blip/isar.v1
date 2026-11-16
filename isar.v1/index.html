@@ -159,6 +159,14 @@
             <div id="panel-connect" class="tab-panel">
                 <span style="font-size: 16px; font-weight: 700; color: #fff;">Add to Isar</span>
 
+                <!-- The real thing: connect a bank read-only, via its own login (bankconnect.js) -->
+                <div class="card" style="padding: 16px; gap: 10px;">
+                    <div style="font-size: 14px; font-weight: 700;">Connect a bank</div>
+                    <div style="font-size: 13px; color: #A1A1AA; line-height: 1.45;">Approve <strong style="color:#D4D4D8;">read-only</strong> access on your bank's own website. Balances update by themselves. Isar never sees your password and can never move money.</div>
+                    <button class="interactive-btn" onclick="openBankConnect()" style="background: #00FF85; border: none; border-radius: 12px; padding: 12px; color: #000; font-size: 14px; font-weight: 700;">Connect a bank</button>
+                    <div style="font-size: 11px; color: #71717A;">European banks today, including Revolut and Wise. Australia is coming.</div>
+                </div>
+
                 <!-- Search: banks, brokers and crypto exchanges all together -->
                 <div style="position: relative;">
                     <input type="text" id="bank-search" oninput="filterBanks()" placeholder="Search banks, brokers and crypto..." style="background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px 14px; color: #fff; font-size: 14px; outline: none; width: 100%;">
@@ -658,6 +666,7 @@
     <script src="js/globedata.js"></script>
     <script src="js/globe.js"></script>
     <script src="js/connect.js"></script>
+    <script src="js/bankconnect.js"></script>
     <script src="js/profile.js"></script>
     <script src="js/performance.js"></script>
     <script src="js/transactions.js"></script>

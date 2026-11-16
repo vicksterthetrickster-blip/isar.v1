@@ -60,8 +60,10 @@ function startApp() {
     fetchLiveRates(false).then(() => { if (!needsSetup()) showDailySummary(); });
     refreshHoldingPrices();             // live crypto prices (and, once the server exists, broker sync and share prices)
     startCloudSync();                   // real accounts: compare with the online copy, then upload changes
+    // Coming back from a bank's approval page: save it, then pull the first balances.
+    finishBankConnect().then(() => syncConnectedBanks());
     // Keep an open dashboard current without relying on a page reload.
-    setInterval(() => { fetchLiveRates(false); refreshHoldingPrices(); keepCloudInSync(); }, 5 * 60 * 1000);
+    setInterval(() => { fetchLiveRates(false); refreshHoldingPrices(); keepCloudInSync(); syncConnectedBanks(); }, 5 * 60 * 1000);
 }
 
 // --- Start-up: runs last, once every function and variable above exists ---

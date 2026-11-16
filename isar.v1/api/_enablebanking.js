@@ -73,6 +73,40 @@ export async function ebRequest(path, options = {}) {
 const SUPABASE_URL = 'https://ditlmphsrvglmetljxdl.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_JfRW2WmTKhkH9Mg0TCLWtg_QznUHiUr';
 
+// --- Talking to the database AS THE PERSON, never as an admin ---
+// This is the heart of keeping bank connections private. The server has NO master key for
+// the database. When it saves or reads a row it forwards the person's own sign-in pass, so
+// Supabase applies the same "you can only touch your own rows" rules it applies in the app.
+// A bug here can't leak someone else's connections: the database itself refuses.
+function userHeaders(request) {
+    return {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        authorization: request.headers.authorization,
+        'Content-Type': 'application/json'
+    };
+}
+
+export async function saveRowAsUser(request, table, row) {
+    const reply = await fetch(SUPABASE_URL + '/rest/v1/' + table, {
+        method: 'POST',
+        headers: { ...userHeaders(request), Prefer: 'return=representation' },
+        body: JSON.stringify(row)
+    });
+    const text = await reply.text();
+    if (!reply.ok) throw new Error('Database refused the save: ' + text.slice(0, 200));
+    const rows = JSON.parse(text);
+    return rows[0];
+}
+
+export async function readRowsAsUser(request, table, columns) {
+    const reply = await fetch(SUPABASE_URL + '/rest/v1/' + table + '?select=' + encodeURIComponent(columns), {
+        headers: userHeaders(request)
+    });
+    const text = await reply.text();
+    if (!reply.ok) throw new Error('Database refused the read: ' + text.slice(0, 200));
+    return JSON.parse(text);
+}
+
 export async function requireUser(request) {
     const auth = request.headers.authorization || '';
     if (!auth.startsWith('Bearer ')) return null;

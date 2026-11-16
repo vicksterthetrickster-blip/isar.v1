@@ -166,7 +166,8 @@ function saveLinkedAccounts() {
         letter: a.letter, color: a.color, balance: a.balance, currency: a.currency,
         addedDate: a.addedDate, history: a.history, historySource: a.historySource,
         group: a.group, kind: a.kind, linkedTo: a.linkedTo,
-        holdings: a.holdings, holdingsSource: a.holdingsSource      // investments only (holdings.js)
+        holdings: a.holdings, holdingsSource: a.holdingsSource,     // investments only (holdings.js)
+        ebUid: a.ebUid                                              // connected banks only (bankconnect.js)
     }));
     saveData();
 }
