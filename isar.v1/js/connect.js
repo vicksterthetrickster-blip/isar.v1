@@ -178,7 +178,7 @@ function saveLinkedAccounts() {
         group: a.group, kind: a.kind, linkedTo: a.linkedTo,
         holdings: a.holdings, holdingsSource: a.holdingsSource,     // investments only (holdings.js)
         ebUid: a.ebUid, logoUrl: a.logoUrl,                         // connected banks only (bankconnect.js)
-        transactions: a.transactions, txFetchedAt: a.txFetchedAt
+        transactions: a.transactions, txFetchedAt: a.txFetchedAt, txError: a.txError
     }));
     saveData();
 }

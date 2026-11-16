@@ -49,7 +49,7 @@ export default async function handler(request, response) {
                 entry.error = 'consent_expired';       // the person needs to approve the bank again
             } else {
                 try {
-                    const data = await ebRequest('/accounts/' + encodeURIComponent(account.uid) + '/balances');
+                    const data = await ebRequest('/accounts/' + encodeURIComponent(account.uid) + '/balances', { psu: request });
                     const best = pickBalance(data.balances || []);
                     if (best && best.balance_amount) {
                         entry.balance = Number(best.balance_amount.amount);

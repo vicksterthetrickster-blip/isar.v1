@@ -72,6 +72,19 @@ export function checkState(state, userId) {
     }
 }
 
+// "The person is here right now." Without these, banks treat a read as a background job and
+// allow only about 4 a day (PSD2), which Isar's balance checks used up before transactions
+// were read. Pass the incoming request as `options.psu` when the person opened the app.
+function psuHeaders(request) {
+    if (!request) return {};
+    const headers = {};
+    const ip = String(request.headers['x-forwarded-for'] || request.headers['x-real-ip'] || '').split(',')[0].trim();
+    if (ip) headers['Psu-Ip-Address'] = ip;
+    if (request.headers['user-agent']) headers['Psu-User-Agent'] = request.headers['user-agent'];
+    if (request.headers['accept-language']) headers['Psu-Accept-Language'] = request.headers['accept-language'];
+    return headers;
+}
+
 // Calls the Enable Banking API. Throws a readable error if it refuses, so the
 // endpoints can report something useful instead of a blank failure.
 export async function ebRequest(path, options = {}) {
@@ -79,6 +92,7 @@ export async function ebRequest(path, options = {}) {
         method: options.method || 'GET',
         headers: {
             Authorization: 'Bearer ' + makeJWT(),
+            ...psuHeaders(options.psu),
             ...(options.body ? { 'Content-Type': 'application/json' } : {})
         },
         ...(options.body ? { body: JSON.stringify(options.body) } : {})

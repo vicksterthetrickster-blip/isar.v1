@@ -306,7 +306,8 @@ function renderAccountTransactions(account) {
     }).join('') || '<div class="tx-empty">Nothing here yet</div>';
 
     document.getElementById('acct-tx-more').hidden = shown.length <= acctTxLimit;
-    const source = account.ebUid ? (Array.isArray(account.transactions) ? 'From your bank, read-only. Refreshed every few hours.' : 'Fetching transactions from your bank…')
+    const source = account.ebUid ? (account.txError ? 'Couldn\'t get transactions from your bank (' + account.txError + '). Isar will try again in 30 minutes.'
+            : Array.isArray(account.transactions) ? 'From your bank, read-only. Refreshed every few hours.' : 'Fetching transactions from your bank…')
         : Array.isArray(account.transactions) || updatesOnly ? ''
         : usesMockTransactions(account) ? 'Sample transactions for the demo.'
         : 'These are the balance updates you\'ve entered. Individual transactions will appear here once this bank is connected.';

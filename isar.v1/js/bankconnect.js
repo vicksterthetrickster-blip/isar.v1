@@ -263,6 +263,8 @@ async function finishBankConnect() {
 const BANK_TX_REFRESH_MS = 6 * 60 * 60 * 1000;
 const BANK_TX_FIRST_DAYS = [730, 89];
 const BANK_TX_OVERLAP_DAYS = 10;
+const BANK_TX_RETRY_MS = 30 * 60 * 1000;     // after a refusal, wait before asking the bank again
+const bankTxFailedAt = {};                     // account uid -> when its last read failed (this visit)
 
 function isoDaysAgo(days) {
     const day = new Date();
@@ -273,20 +275,30 @@ function isoDaysAgo(days) {
 async function syncBankTransactions(account) {
     const first = !Array.isArray(account.transactions);
     if (!first && account.txFetchedAt && Date.now() - account.txFetchedAt < BANK_TX_REFRESH_MS) return false;
+    if (bankTxFailedAt[account.ebUid] && Date.now() - bankTxFailedAt[account.ebUid] < BANK_TX_RETRY_MS) return false;
 
     const tries = first ? BANK_TX_FIRST_DAYS.map(isoDaysAgo) : [isoDaysAgo(BANK_TX_OVERLAP_DAYS)];
-    for (const from of tries) {
+    let lastError = '';
+    for (const [i, from] of tries.entries()) {
         try {
             const data = await callServer('/api/bank-transactions?uid=' + encodeURIComponent(account.ebUid) + '&from=' + from);
+            if (!data.transactions.length && i < tries.length - 1) continue;   // some banks answer a too-long range with nothing
             const kept = (account.transactions || []).filter(t => t.date < from);
             account.transactions = kept.concat(data.transactions);
             account.txFetchedAt = Date.now();
+            delete account.txError;
+            delete bankTxFailedAt[account.ebUid];
             return true;
         } catch (e) {
-            if (e.message === 'consent_expired') return false;
+            lastError = e.message;
+            if (lastError === 'consent_expired') break;
         }
     }
-    return false;
+    // Kept on the account and shown under its transactions, so a refusal is never silent.
+    bankTxFailedAt[account.ebUid] = Date.now();
+    const changed = account.txError !== lastError;
+    account.txError = lastError;
+    return changed;
 }
 
 // --- Step 3: keep balances fresh ---

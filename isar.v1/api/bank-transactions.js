@@ -73,7 +73,7 @@ export default async function handler(request, response) {
     try {
         for (let page = 0; page < MAX_PAGES; page++) {
             const query = '?date_from=' + from + (continuation ? '&continuation_key=' + encodeURIComponent(continuation) : '');
-            const data = await ebRequest('/accounts/' + encodeURIComponent(uid) + '/transactions' + query);
+            const data = await ebRequest('/accounts/' + encodeURIComponent(uid) + '/transactions' + query, { psu: request });
             (data.transactions || []).forEach(tx => {
                 const converted = toIsarTransaction(tx, transactions.length);
                 if (converted) transactions.push(converted);
