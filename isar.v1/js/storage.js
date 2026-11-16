@@ -58,7 +58,11 @@ else if (SAVED.settings.showSampleData === undefined) USER_SETTINGS.showSampleDa
 // Only accounts with a valid balance and a currency the app knows are restored.
 SAVED.linkedAccounts.forEach(a => {
     if (!a || !a.id || !CURRENCY_META[a.currency] || typeof a.balance !== 'number') return;
-    if (!ACCOUNTS.some(x => x.id === a.id)) ACCOUNTS.push(Object.assign({}, a, { userLinked: true }));
+    if (ACCOUNTS.some(x => x.id === a.id)) return;
+    const account = Object.assign({}, a, { userLinked: true });
+    // Connected before providers were recorded: those were all Enable Banking.
+    if (account.ebUid) { account.provider = 'enablebanking'; account.bankAccountId = account.ebUid; delete account.ebUid; }
+    ACCOUNTS.push(account);
 });
 
 // "Start fresh": with sample data off, only the user's own accounts are kept.

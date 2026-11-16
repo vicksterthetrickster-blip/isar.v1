@@ -52,13 +52,9 @@ let bankSyncRunning = false;
 const bankListCache = {};          // country -> the request for its bank list (fetched once per visit)
 let searchBankList = null;         // the real banks the Add tab and setup searches look through
 
-// Enable Banking supplies a logo for every bank; logos.js styles it like every other logo.
+// The provider supplies a logo for every bank; logos.js styles it like every other logo.
 function connectableBankIcon(bank, size) {
     return bankIconHTML({ name: bank.name, color: '#1E1E24', logoUrl: bank.logo }, size);
-}
-
-function enableBankingLogoUrl(country, bankName) {
-    return 'https://enablebanking.com/brands/' + encodeURIComponent(country) + '/' + encodeURIComponent(bankName) + '/';
 }
 
 // The pass proving who you are, which the server checks with Supabase before doing anything.
@@ -105,14 +101,14 @@ function openBankConnect() {
 
 let bankChoices = [];
 
-// Personal accounts only; Isar isn't a business tool yet.
+// Each bank comes with the provider that connects it; the server picks it by country.
 function fetchBankList(country) {
     if (!bankListCache[country]) {
         bankListCache[country] = fetch('/api/banks?country=' + country, { cache: 'no-store' })
             .then(reply => reply.json())
             .then(data => {
                 if (!data.ok) throw new Error(data.error || 'Could not load banks');
-                return data.banks.filter(b => !b.psuTypes.length || b.psuTypes.includes('personal'));
+                return data.banks;
             })
             .catch(error => { delete bankListCache[country]; throw error; });
     }
@@ -190,7 +186,7 @@ async function connectToBank(bank) {
     if (!bank) return;
     showToast('Opening ' + bank.name + '…');
     try {
-        const data = await callServer('/api/bank-connect', { method: 'POST', body: { name: bank.name, country: bank.country } });
+        const data = await callServer('/api/bank-connect', { method: 'POST', body: { provider: bank.provider, name: bank.name, country: bank.country } });
         // Leaving for a bank counts as finishing setup, so it doesn't start over on your return.
         if (isSetupOpen()) { SAVED.setupDone = true; saveData(); }
         // You may come back in another browser, which loads your data from your account.
@@ -275,19 +271,21 @@ function isoDaysAgo(days) {
 async function syncBankTransactions(account) {
     const first = !Array.isArray(account.transactions);
     if (!first && account.txFetchedAt && Date.now() - account.txFetchedAt < BANK_TX_REFRESH_MS) return false;
-    if (bankTxFailedAt[account.ebUid] && Date.now() - bankTxFailedAt[account.ebUid] < BANK_TX_RETRY_MS) return false;
+    const key = account.provider + ':' + account.bankAccountId;
+    if (bankTxFailedAt[key] && Date.now() - bankTxFailedAt[key] < BANK_TX_RETRY_MS) return false;
 
     const tries = first ? BANK_TX_FIRST_DAYS.map(isoDaysAgo) : [isoDaysAgo(BANK_TX_OVERLAP_DAYS)];
     let lastError = '';
     for (const [i, from] of tries.entries()) {
         try {
-            const data = await callServer('/api/bank-transactions?uid=' + encodeURIComponent(account.ebUid) + '&from=' + from);
+            const data = await callServer('/api/bank-transactions?provider=' + encodeURIComponent(account.provider) +
+                '&uid=' + encodeURIComponent(account.bankAccountId) + '&from=' + from);
             if (!data.transactions.length && i < tries.length - 1) continue;   // some banks answer a too-long range with nothing
             const kept = (account.transactions || []).filter(t => t.date < from);
             account.transactions = kept.concat(data.transactions);
             account.txFetchedAt = Date.now();
             delete account.txError;
-            delete bankTxFailedAt[account.ebUid];
+            delete bankTxFailedAt[key];
             return true;
         } catch (e) {
             lastError = e.message;
@@ -295,15 +293,15 @@ async function syncBankTransactions(account) {
         }
     }
     // Kept on the account and shown under its transactions, so a refusal is never silent.
-    bankTxFailedAt[account.ebUid] = Date.now();
+    bankTxFailedAt[key] = Date.now();
     const changed = account.txError !== lastError;
     account.txError = lastError;
     return changed;
 }
 
 // --- Step 3: keep balances fresh ---
-// Turns each synced bank account into an Isar account, matched by its `ebUid` so the same
-// account is updated rather than duplicated. From here on it behaves like any other account:
+// Turns each synced bank account into an Isar account, matched by its provider and
+// `bankAccountId` so the same account is updated rather than duplicated. From here on it behaves like any other account:
 // net worth, graphs, the Globe and snapshots all include it automatically.
 async function syncConnectedBanks() {
     if (bankSyncRunning || !getSession() || getSession().demo) return;
@@ -317,8 +315,8 @@ async function syncConnectedBanks() {
             if (incoming.error === 'consent_expired') { needsReconnect = true; return; }
             if (incoming.error || typeof incoming.balance !== 'number' || !CURRENCY_META[incoming.currency]) return;
 
-            const logoUrl = enableBankingLogoUrl(incoming.country, incoming.bank);
-            const existing = ACCOUNTS.find(a => a.ebUid === incoming.uid);
+            const logoUrl = incoming.logo;
+            const existing = ACCOUNTS.find(a => a.provider === incoming.provider && a.bankAccountId === incoming.uid);
             if (existing) {
                 if (existing.logoUrl !== logoUrl) { existing.logoUrl = logoUrl; changed = true; }
                 if (existing.balance !== incoming.balance) {
@@ -329,8 +327,9 @@ async function syncConnectedBanks() {
             } else {
                 const today = localISODate(new Date());
                 ACCOUNTS.push({
-                    id: 'eb-' + incoming.uid,
-                    ebUid: incoming.uid,
+                    id: incoming.provider + '-' + incoming.uid,
+                    provider: incoming.provider,
+                    bankAccountId: incoming.uid,
                     bankName: incoming.bank,
                     name: incoming.name || incoming.bank,
                     type: 'Connected account',
@@ -348,7 +347,7 @@ async function syncConnectedBanks() {
             }
         });
 
-        for (const account of ACCOUNTS.filter(a => a.ebUid)) {
+        for (const account of ACCOUNTS.filter(a => a.bankAccountId)) {
             if (await syncBankTransactions(account)) changed = true;
         }
 

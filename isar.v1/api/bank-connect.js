@@ -1,15 +1,13 @@
 // api/bank-connect.js — step 1 of connecting a bank: starts a READ-ONLY consent.
 //
-// The app calls this with the person's Isar sign-in pass and the bank they picked.
-// The server asks Enable Banking to begin an ACCOUNT INFORMATION consent (reading only —
-// payments are a different permission Isar never requests and isn't registered for), and
-// replies with the bank's own authorisation page URL. The bank carries a signed `state`
-// ticket there and back, which bank-complete checks. Nobody's password is involved:
-// they log in on the bank's own site.
+// The app calls this with the person's Isar sign-in pass and the bank they picked. The
+// provider for that bank's country starts an account-information consent (reading only) and
+// returns the bank's own page to send the person to. A signed `state` ticket naming the person
+// and the provider goes there and back, and bank-complete checks it. Nobody's password is
+// involved: they log in on the bank's own site.
 
-import { ebRequest, requireUser, makeState } from './_enablebanking.js';
-
-const CONSENT_DAYS = 89;        // how long the bank access lasts before re-approval (banks may cap it lower)
+import { requireUser, makeState } from './_server.js';
+import { getProvider, providerForCountry } from './_providers.js';
 
 export default async function handler(request, response) {
     response.setHeader('Cache-Control', 'no-store');
@@ -18,28 +16,22 @@ export default async function handler(request, response) {
     const user = await requireUser(request);
     if (!user) return response.status(401).json({ ok: false, error: 'Sign in to Isar first.' });
 
-    const name = String((request.body && request.body.name) || '').slice(0, 100);
-    const country = String((request.body && request.body.country) || '').toUpperCase();
+    const body = request.body || {};
+    const name = String(body.name || '').slice(0, 100);
+    const country = String(body.country || '').toUpperCase();
     if (!name || !/^[A-Z]{2}$/.test(country)) {
         return response.status(400).json({ ok: false, error: 'Send the bank\'s name and two-letter country.' });
     }
+    const provider = getProvider(body.provider) || providerForCountry(country);
+    if (!provider) return response.status(400).json({ ok: false, error: 'Isar can\'t connect banks in this country yet.' });
 
-    // The person returns to the app's own address, which is whitelisted at Enable Banking.
+    // The person returns to the app's own address, which is whitelisted at the provider.
     const redirectUrl = 'https://' + request.headers.host + '/';
-    const state = makeState(user.id);       // anti-forgery ticket naming this person: bank-complete checks it
+    const state = makeState(user.id, provider.name);
 
     try {
-        const auth = await ebRequest('/auth', {
-            method: 'POST',
-            body: {
-                access: { valid_until: new Date(Date.now() + CONSENT_DAYS * 24 * 60 * 60 * 1000).toISOString() },
-                aspsp: { name: name, country: country },
-                state: state,
-                redirect_url: redirectUrl,
-                psu_type: 'personal'
-            }
-        });
-        response.status(200).json({ ok: true, url: auth.url, state: state });
+        const url = await provider.startConnect({ bank: { name, country }, state, redirectUrl, request });
+        response.status(200).json({ ok: true, url: url });
     } catch (error) {
         response.status(502).json({ ok: false, error: error.message });
     }
