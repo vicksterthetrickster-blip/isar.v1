@@ -180,7 +180,8 @@ function saveLinkedAccounts() {
         provider: a.provider, bankAccountId: a.bankAccountId, logoUrl: a.logoUrl,   // connected banks only (bankconnect.js)
         connectionId: a.connectionId, bankCountry: a.bankCountry,                   // which bank login; groups a bank's accounts (accounts.js)
         parentName: a.parentName, currencyFixed: a.currencyFixed,                   // card it belongs to; a currency you set yourself
-        transactions: a.transactions, txFetchedAt: a.txFetchedAt, txError: a.txError
+        transactions: a.transactions, txFetchedAt: a.txFetchedAt, txError: a.txError,
+        txCoveredFrom: a.txCoveredFrom, balanceType: a.balanceType                  // for past balances from transactions (bankconnect.js)
     }));
     saveData();
 }

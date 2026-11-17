@@ -227,15 +227,29 @@ async function refreshRateHistory() {
 // The rate from one currency to another on a date: 1 `from` = rate `to`. Weekends and holidays
 // use the last working day (the ECB doesn't publish then). Null if we don't have that date.
 function getRateOnDate(date, from, to) {
-    let rateDate = null;
-    for (const d of rateHistoryDates) {
-        if (d > date) break;
-        rateDate = d;
-    }
+    const rateDate = rateDateOnOrBefore(date);
     if (!rateDate) return null;
     const rates = Object.assign({ [BASE_CURRENCY]: 1 }, rateHistory[rateDate]);
     if (!rates[from] || !rates[to]) return null;
     return { rate: rates[to] / rates[from], rateDate: rateDate };
+}
+
+// Every rate on a date, in the same shape as EXCHANGE_RATES (1 AUD = X), or null if we don't
+// have that date. Used to value past net worth at that day's rates (history.js).
+function getRatesOnDate(date) {
+    const rateDate = rateDateOnOrBefore(date);
+    return rateDate ? Object.assign({ [BASE_CURRENCY]: 1 }, rateHistory[rateDate]) : null;
+}
+
+// The newest saved rate date on or before `date` (dates are sorted, so this halves the search).
+function rateDateOnOrBefore(date) {
+    let low = 0, high = rateHistoryDates.length - 1, found = null;
+    while (low <= high) {
+        const middle = (low + high) >> 1;
+        if (rateHistoryDates[middle] <= date) { found = rateHistoryDates[middle]; low = middle + 1; }
+        else high = middle - 1;
+    }
+    return found;
 }
 
 function formatMoney(value) {

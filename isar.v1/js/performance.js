@@ -11,8 +11,9 @@ function computeStepStats(points) {
     const steps = [];
     for (let i = 1; i < points.length; i++) {
         const prev = points[i - 1], cur = points[i];
-        if (prev.value <= 0) continue;
-        steps.push({ t: cur.t, amount: cur.value - prev.value, pct: (cur.value - prev.value) / prev.value * 100 });
+        const pct = percentChange(prev.value, cur.value);
+        if (pct === null) continue;
+        steps.push({ t: cur.t, amount: cur.value - prev.value, pct: pct });
     }
     if (!steps.length) return null;
 
@@ -34,7 +35,7 @@ function computeDrawdown(points) {
     let peak = points[0], worst = null;
     for (const p of points) {
         if (p.value > peak.value) peak = p;
-        const drawdownPct = peak.value > 0 ? (p.value - peak.value) / peak.value * 100 : 0;
+        const drawdownPct = percentChange(peak.value, p.value) || 0;
         if (!worst || drawdownPct < worst.pct) worst = { pct: drawdownPct, peak, trough: p };
     }
     return worst && worst.pct < 0 ? worst : null;
@@ -46,7 +47,9 @@ function computeAnnualized(points) {
     if (points.length < 2) return null;
     const first = points[0], last = points[points.length - 1];
     const days = (last.t - first.t) / 864e5;
-    if (days < 1 || first.value <= 0) return null;
+    // Compounding only means something when both ends are positive (a negative total has no
+    // yearly growth rate, and a power of a negative number isn't a number at all).
+    if (days < 1 || first.value <= 0 || last.value <= 0) return null;
     return (Math.pow(last.value / first.value, 365 / days) - 1) * 100;
 }
 
@@ -62,7 +65,7 @@ function computeContributions(label, code) {
         return {
             account, startValue, endValue,
             delta: endValue - startValue,
-            pct: startValue > 0 ? (endValue - startValue) / startValue * 100 : null
+            pct: percentChange(startValue, endValue)
         };
     }).filter(Boolean).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 }
@@ -98,8 +101,10 @@ function renderPerfSummary(points, clipped) {
     asOf.innerText = 'As of ' + formatGraphDate(last.t, true) + (clipped ? ' · since ' + formatGraphDate(first.t, false) : '');
     total.innerText = meta.symbol + formatMoney(last.value);
     change.style.color = up ? '#00FF85' : '#FF4D6D';
-    change.innerText = (up ? '↑ +' : '↓ −') + Math.abs((last.lfl - first.lfl) / first.lfl * 100).toFixed(1) + '% (' +
-        (up ? '+' : '−') + meta.symbol + formatMoney(Math.abs(last.lfl - first.lfl)) + ' ' + activeCurrency + ') over ' + activeTimeframe.toLowerCase();
+    const pct = percentChange(first.lfl, last.lfl);
+    const amount = (up ? '+' : '−') + meta.symbol + formatMoney(Math.abs(last.lfl - first.lfl)) + ' ' + activeCurrency;
+    // No % when the window starts at 0 (nothing to measure against); the amount is still right.
+    change.innerText = (pct === null ? amount : (up ? '↑ +' : '↓ −') + Math.abs(pct).toFixed(1) + '% (' + amount + ')') + ' over ' + activeTimeframe.toLowerCase();
 }
 
 // While dragging: show the value/date under the finger instead of the window summary.
@@ -112,7 +117,10 @@ function renderPerfScrub(points, idx) {
     document.getElementById('perf-total').innerText = meta.symbol + formatMoney(p.value);
     const change = document.getElementById('perf-change');
     change.style.color = up ? '#00FF85' : '#FF4D6D';
-    change.innerText = (up ? '↑ +' : '↓ −') + Math.abs((p.lfl - first.lfl) / first.lfl * 100).toFixed(1) + '% since ' + formatGraphDate(first.t, false);
+    const pct = percentChange(first.lfl, p.lfl);
+    change.innerText = pct === null
+        ? (up ? '+' : '−') + meta.symbol + formatMoney(Math.abs(p.lfl - first.lfl)) + ' since ' + formatGraphDate(first.t, false)
+        : (up ? '↑ +' : '↓ −') + Math.abs(pct).toFixed(1) + '% since ' + formatGraphDate(first.t, false);
 }
 
 function renderPerfStats(points) {

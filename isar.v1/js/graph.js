@@ -50,7 +50,8 @@ function drawGraph(points, ids, size) {
     svg.style.color = color;
     if (pctEl) {
         pctEl.parentElement.style.color = color;
-        pctEl.innerText = first > 0 ? (up ? '+' : '') + (((last - first) / first) * 100).toFixed(1) + '%' : '—';
+        const pct = percentChange(first, last);        // also right for debts and negative totals
+        pctEl.innerText = pct === null ? '—' : (up ? '+' : '') + pct.toFixed(1) + '%';
     }
 
     // Six evenly spaced date labels across the visible window.

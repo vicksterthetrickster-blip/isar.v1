@@ -296,6 +296,7 @@ async function syncBankTransactions(account) {
             const kept = (account.transactions || []).filter(t => t.date < from);
             account.transactions = kept.concat(data.transactions);
             account.txFetchedAt = Date.now();
+            if (first) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);
             delete account.txError;
             delete bankTxFailedAt[key];
             return true;
@@ -309,6 +310,60 @@ async function syncBankTransactions(account) {
     const changed = account.txError !== lastError;
     account.txError = lastError;
     return changed;
+}
+
+// --- Past balances, worked out from transactions ---
+// A connected account's history starts the day you connect it, so its graph had one point and
+// said "Not enough history". Its transactions go back further, and they pin down every earlier
+// balance exactly, walking backwards from the first balance Isar saw:
+//   balance at the end of a day = first balance seen − every transaction after that day
+// That gives one point per day with transactions, plus one where the bank's data starts. The
+// points are marked `fromTransactions` and rebuilt from scratch after each sync, so they never
+// pile up or go stale. Balances Isar actually saw are never changed.
+const BANK_TX_SURE_DAYS = BANK_TX_FIRST_DAYS[BANK_TX_FIRST_DAYS.length - 1];   // every bank gives at least this much
+// Balance types that already include payments still pending. With any other (a "current" or
+// booked balance), pending payments aren't in the balance yet, so they're left out of the walk.
+const BALANCE_TYPES_WITH_PENDING = ['CLAV', 'ITAV', 'XPCD', 'AVAILABLE'];
+
+function rebuildHistoryFromTransactions(account) {
+    if (!Array.isArray(account.transactions) || !Array.isArray(account.history)) return false;
+    const seen = account.history.filter(h => h && !h.fromTransactions && typeof h.balance === 'number');
+    if (!seen.length) return false;
+    const anchor = seen[0];
+    if (!account.txCoveredFrom) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);   // read before this was saved
+
+    const pendingInBalance = BALANCE_TYPES_WITH_PENDING.includes(String(account.balanceType || '').toUpperCase());
+    const movedOn = {};                                  // date -> that day's total in and out
+    account.transactions.forEach(t => {
+        if (!t || typeof t.amount !== 'number' || !isFinite(t.amount) || typeof t.date !== 'string' || t.date > anchor.date) return;
+        if (t.category === 'Pending' && !pendingInBalance) return;
+        movedOn[t.date] = (movedOn[t.date] || 0) + t.amount;
+    });
+    const days = Object.keys(movedOn).sort();
+
+    // The bank's data surely reaches back to the day before its oldest transaction, or to the
+    // stretch every bank gives, whichever is earlier. Before that, Isar doesn't know.
+    const dayBeforeOldest = days.length ? shiftISODate(days[0], -1) : null;
+    const start = dayBeforeOldest && dayBeforeOldest < account.txCoveredFrom ? dayBeforeOldest : account.txCoveredFrom;
+
+    const worked = [];
+    let balance = anchor.balance;
+    for (let i = days.length - 1; i >= 0; i--) {         // newest day first, stepping back in time
+        if (days[i] < anchor.date) worked.push({ date: days[i], balance: Math.round(balance * 100) / 100, fromTransactions: true });
+        balance -= movedOn[days[i]];                      // undo that day: now it's the day before's closing balance
+    }
+    if (start < anchor.date) worked.push({ date: start, balance: Math.round(balance * 100) / 100, fromTransactions: true });
+
+    const history = worked.reverse().concat(seen);
+    if (JSON.stringify(history) === JSON.stringify(account.history)) return false;
+    account.history = history;
+    return true;
+}
+
+function shiftISODate(iso, days) {
+    const day = new Date(iso + 'T00:00:00Z');
+    day.setUTCDate(day.getUTCDate() + days);
+    return day.toISOString().slice(0, 10);
 }
 
 // --- Step 3: keep balances fresh ---
@@ -359,6 +414,7 @@ async function syncConnectedBanks() {
 
         for (const account of ACCOUNTS.filter(a => a.bankAccountId)) {
             if (await syncBankTransactions(account)) changed = true;
+            if (rebuildHistoryFromTransactions(account)) changed = true;
         }
 
         if (changed) { saveLinkedAccounts(); refreshAfterAccountChange(); refreshAccountTransactions(); }
@@ -395,6 +451,9 @@ function applyIncomingAccount(incoming) {
         // labelled AUD). Its amounts were always in the real currency, so only the label changes;
         // its history and transactions stay as they are.
         if (existing.currency !== currency) { existing.currency = currency; changed = true; }
+        // Which kind of balance the bank gives decides whether pending payments are in it (see
+        // rebuildHistoryFromTransactions).
+        if (incoming.balanceType && existing.balanceType !== incoming.balanceType) { existing.balanceType = incoming.balanceType; changed = true; }
         if (existing.balance !== incoming.balance) {
             existing.balance = incoming.balance;
             recordBalanceToday(existing);       // keeps its history, same as a typed update
@@ -420,6 +479,7 @@ function applyIncomingAccount(incoming) {
         logoUrl: incoming.logo,
         balance: incoming.balance,
         currency: currency,
+        balanceType: incoming.balanceType,
         addedDate: today,
         history: [{ date: today, time: currentTimeHHMM(), balance: incoming.balance }],
         historySource: 'bank',
