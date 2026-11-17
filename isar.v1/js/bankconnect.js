@@ -94,11 +94,13 @@ function openBankConnect() {
     if (getSession() && getSession().demo) return showToast('Connecting banks needs a real account');
     openInfoScreen('Connect a bank',
         '<p class="info-note" style="text-align: left;">Pick your bank. You\'ll approve <strong>read-only</strong> access on the bank\'s own website — Isar never sees your password and can never move money.</p>' +
+        '<div id="bank-problems"></div>' +      // problems from the last sync (renderBankProblems)
         '<label class="form-label">Country<select id="bank-country" class="form-select" onchange="pickBankCountry(this.value)">' +
             BANK_COUNTRIES.map(c => '<option value="' + c[0] + '"' + (c[0] === bankConnectCountry ? ' selected' : '') + '>' + c[1] + '</option>').join('') +
         '</select></label>' +
         '<input class="auth-input" id="bank-filter" type="search" placeholder="Search banks" oninput="renderBankChoices()" autocomplete="off">' +
         '<div id="bank-choices" class="setup-list"><p class="info-note">Loading banks…</p></div>');
+    renderBankProblems();
     loadBanksForCountry(bankConnectCountry);
 }
 
@@ -313,47 +315,44 @@ async function syncBankTransactions(account) {
 // Turns each synced bank account into an Isar account, matched by its provider and
 // `bankAccountId` so the same account is updated rather than duplicated. From here on it behaves like any other account:
 // net worth, graphs, the Globe and snapshots all include it automatically.
+//
+// THE RULE THIS FUNCTION KEEPS: every account the server knows about either shows in Isar or
+// shows up as a problem you can read. Nothing is ever dropped silently. (It used to be: an
+// account with an error, no balance or an unknown currency was skipped without a word, which
+// looked exactly like "connected but missing", first with Enable Banking, then BankSync.)
+let bankSyncProblems = [];              // the latest sync's problems, also listed in "Connect a bank"
+const bankProblemsShown = new Set();    // shown in a pop-up once per visit, not every 5 minutes
+
 async function syncConnectedBanks() {
     if (bankSyncRunning || !getSession() || getSession().demo) return;
     bankSyncRunning = true;
     try {
-        const data = await callServer('/api/bank-sync');
+        // Wait for the online comparison (cloud.js), or the accounts added here could be replaced.
+        if (!(await cloudSettled())) return;
+
+        let data;
+        try {
+            data = await callServer('/api/bank-sync');
+        } catch (e) {
+            // No internet: try again later, quietly. Anything else is a real problem: show it.
+            if (e instanceof TypeError || !navigator.onLine) return;
+            reportBankProblems(['Couldn\'t update your banks: ' + e.message]);
+            return;
+        }
+
         let changed = false;
         let needsReconnect = false;
+        const problems = [];
 
         data.accounts.forEach(incoming => {
-            if (incoming.error === 'consent_expired') { needsReconnect = true; return; }
-            if (incoming.error || typeof incoming.balance !== 'number' || !CURRENCY_META[incoming.currency]) return;
-
-            const logoUrl = incoming.logo;
-            const existing = ACCOUNTS.find(a => a.provider === incoming.provider && a.bankAccountId === incoming.uid);
-            if (existing) {
-                if (existing.logoUrl !== logoUrl) { existing.logoUrl = logoUrl; changed = true; }
-                if (existing.balance !== incoming.balance) {
-                    existing.balance = incoming.balance;
-                    recordBalanceToday(existing);       // keeps its history, same as a typed update
-                    changed = true;
-                }
-            } else {
-                const today = localISODate(new Date());
-                ACCOUNTS.push({
-                    id: incoming.provider + '-' + incoming.uid,
-                    provider: incoming.provider,
-                    bankAccountId: incoming.uid,
-                    bankName: incoming.bank,
-                    name: incoming.name || incoming.bank,
-                    type: 'Connected account',
-                    letter: Array.from(incoming.bank)[0].toUpperCase(),
-                    color: '#1E1E24',
-                    logoUrl: logoUrl,
-                    balance: incoming.balance,
-                    currency: incoming.currency,
-                    addedDate: today,
-                    history: [{ date: today, time: currentTimeHHMM(), balance: incoming.balance }],
-                    historySource: 'bank',
-                    userLinked: true
-                });
-                changed = true;
+            // Each account on its own: one bad account can't stop the others from showing.
+            try {
+                const problem = applyIncomingAccount(incoming);
+                if (problem === 'consent_expired') needsReconnect = true;
+                else if (problem === 'changed') changed = true;
+                else if (problem) problems.push(problem);
+            } catch (e) {
+                problems.push(bankAccountLabel(incoming) + ': ' + e.message);
             }
         });
 
@@ -362,10 +361,86 @@ async function syncConnectedBanks() {
         }
 
         if (changed) { saveLinkedAccounts(); refreshAfterAccountChange(); refreshAccountTransactions(); }
-        if (needsReconnect) showToast('A bank needs approving again — reconnect it in the Add tab');
-    } catch (e) {
-        // Offline, or no banks connected yet: nothing to report, the app works as before.
+        if (needsReconnect) showToast('A bank needs approving again. Reconnect it in the Add tab (Australian banks: in the BankSync app).');
+        reportBankProblems(problems);
     } finally {
         bankSyncRunning = false;
     }
+}
+
+// Puts one account from the server into Isar. Returns 'changed', nothing (no change), or a
+// readable problem.
+function applyIncomingAccount(incoming) {
+    if (incoming.error === 'consent_expired') return 'consent_expired';
+    if (incoming.error) return bankAccountLabel(incoming) + ': ' + bankErrorText(incoming.error);
+    if (typeof incoming.balance !== 'number' || !Number.isFinite(incoming.balance)) {
+        return bankAccountLabel(incoming) + ': the bank didn\'t send a balance.';
+    }
+    const currency = String(incoming.currency || '').toUpperCase();
+    if (!CURRENCY_META[currency]) {
+        return bankAccountLabel(incoming) + ': Isar doesn\'t support the currency "' + (incoming.currency || 'none') + '" yet.';
+    }
+
+    const existing = ACCOUNTS.find(a => a.provider === incoming.provider && a.bankAccountId === incoming.uid);
+    if (existing) {
+        let changed = false;
+        if (existing.logoUrl !== incoming.logo) { existing.logoUrl = incoming.logo; changed = true; }
+        if (existing.balance !== incoming.balance) {
+            existing.balance = incoming.balance;
+            recordBalanceToday(existing);       // keeps its history, same as a typed update
+            changed = true;
+        }
+        return changed ? 'changed' : null;
+    }
+
+    const bankName = String(incoming.bank || 'Bank');
+    const today = localISODate(new Date());
+    ACCOUNTS.push({
+        id: incoming.provider + '-' + incoming.uid,
+        provider: incoming.provider,
+        bankAccountId: incoming.uid,
+        bankName: bankName,
+        name: incoming.name || bankName,
+        type: 'Connected account',
+        letter: (Array.from(bankName)[0] || 'B').toUpperCase(),
+        color: '#1E1E24',
+        logoUrl: incoming.logo,
+        balance: incoming.balance,
+        currency: currency,
+        addedDate: today,
+        history: [{ date: today, time: currentTimeHHMM(), balance: incoming.balance }],
+        historySource: 'bank',
+        userLinked: true
+    });
+    return 'changed';
+}
+
+function bankAccountLabel(incoming) {
+    return (incoming.bank || 'A bank') + (incoming.name ? ' · ' + incoming.name : '');
+}
+
+function bankErrorText(error) {
+    return {
+        no_accounts: 'connected, but no accounts were saved. Connect it again in the Add tab.',
+        unknown_provider: 'Isar doesn\'t recognise how this bank is connected.'
+    }[error] || error;
+}
+
+// Problems show in a pop-up the first time they appear in a visit, and stay listed in
+// "Connect a bank" for as long as they last.
+function reportBankProblems(problems) {
+    bankSyncProblems = problems;
+    renderBankProblems();
+    const fresh = problems.filter(p => !bankProblemsShown.has(p));
+    if (!fresh.length) return;
+    fresh.forEach(p => bankProblemsShown.add(p));
+    showNotice(fresh.length === 1 ? 'A bank account couldn\'t update' : fresh.length + ' bank accounts couldn\'t update', fresh.map(p => '• ' + p).join(' '));
+}
+
+function renderBankProblems() {
+    const box = document.getElementById('bank-problems');
+    if (!box) return;
+    box.innerHTML = bankSyncProblems.length
+        ? '<p class="info-note" style="text-align: left; color: #FF6B6B;">' + bankSyncProblems.map(escapeHTML).join('<br>') + '</p>'
+        : '';
 }

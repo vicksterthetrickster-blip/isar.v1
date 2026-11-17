@@ -3,6 +3,7 @@
 //
 //   requireUser()                       is this request from a signed-in Isar person?
 //   saveRowAsUser() / readRowsAsUser()  the database, AS that person (no master key exists)
+//   updateRowAsUser()                   changes one of that person's own rows
 //   makeState() / checkState()          the signed ticket that travels to the bank and back
 
 import { createHmac, createHash, randomBytes, timingSafeEqual } from 'crypto';
@@ -51,6 +52,20 @@ export async function saveRowAsUser(request, table, row) {
     const text = await reply.text();
     if (!reply.ok) throw new Error('Database refused the save: ' + text.slice(0, 200));
     return JSON.parse(text)[0];
+}
+
+// Changes one of the person's own rows (the database's "own rows only" rule still applies).
+export async function updateRowAsUser(request, table, id, fields) {
+    const reply = await fetch(SUPABASE_URL + '/rest/v1/' + table + '?id=eq.' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: { ...userHeaders(request), Prefer: 'return=representation' },
+        body: JSON.stringify(fields)
+    });
+    const text = await reply.text();
+    if (!reply.ok) throw new Error('Database refused the change: ' + text.slice(0, 200));
+    const rows = JSON.parse(text);
+    if (!rows.length) throw new Error('Database refused the change: that connection isn\'t yours.');
+    return rows[0];
 }
 
 export async function readRowsAsUser(request, table, columns) {

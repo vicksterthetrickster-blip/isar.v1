@@ -117,11 +117,22 @@ async function downloadCloudDataFor(session) {
 }
 
 // On start-up (main.js): compare this device with the online copy, then keep uploading changes.
+// Returns when the comparison is done (or couldn't happen, e.g. offline).
 function startCloudSync() {
-    if (!CLOUD_META_KEY) return;
+    if (!CLOUD_META_KEY) return Promise.resolve();
     window.addEventListener('online', keepCloudInSync);
     document.addEventListener('visibilitychange', () => { if (document.hidden) flushCloudUpload(); });
-    syncWithCloud();
+    return syncWithCloud();
+}
+
+// Anything that adds accounts by itself (bank sync) must wait for this first. Otherwise an
+// online copy that wins the comparison replaces this device's data and reloads, and the
+// accounts just added are lost. True when it's safe to add things.
+let cloudChecking = null;
+async function cloudSettled() {
+    if (!CLOUD_META_KEY || cloudReady) return true;
+    await syncWithCloud();
+    return cloudReady;
 }
 
 // Every few minutes and when the internet comes back: finish whatever is waiting.
@@ -131,7 +142,13 @@ function keepCloudInSync() {
     else uploadToCloud();
 }
 
-async function syncWithCloud() {
+// One comparison at a time: callers arriving meanwhile wait for the same one.
+function syncWithCloud() {
+    if (!cloudChecking) cloudChecking = compareWithCloud().finally(() => { cloudChecking = null; });
+    return cloudChecking;
+}
+
+async function compareWithCloud() {
     if (!usesCloud()) return setCloudStatus('offline');
     let row;
     try {

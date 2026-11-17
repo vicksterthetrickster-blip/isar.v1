@@ -8,7 +8,7 @@
 // The connection is saved AS THE PERSON THEMSELVES: the database's "own rows only" rules make
 // it impossible to file this under anyone else's account. No master key exists.
 
-import { requireUser, saveRowAsUser, readRowsAsUser, checkState } from './_server.js';
+import { requireUser, saveRowAsUser, readRowsAsUser, updateRowAsUser, checkState } from './_server.js';
 import { getProvider } from './_providers.js';
 
 export default async function handler(request, response) {
@@ -30,11 +30,17 @@ export default async function handler(request, response) {
 
     try {
         const result = await provider.completeConnect({ code, request, user });
-        // Linking the same BankSync bank twice would show its accounts twice; keep the first.
-        const existing = (await readRowsAsUser(request, 'bank_connections', 'provider,session_id,bank_name'))
+        // A connection with no accounts would look connected but never show anything. Say so instead.
+        if (!result.accounts.length) {
+            return response.status(422).json({ ok: false, error: result.bankName + ' connected, but it shared no accounts with Isar. Check the accounts you allowed, then connect again.' });
+        }
+        // Linking the same bank again refreshes its saved accounts (so a bad save can always be
+        // repaired by connecting again) instead of adding a second copy.
+        const existing = (await readRowsAsUser(request, 'bank_connections', 'id,provider,session_id,bank_name'))
             .find(c => (c.provider || 'enablebanking') === provider.name && c.session_id === result.sessionId);
         if (existing) {
-            return response.status(200).json({ ok: true, bank: existing.bank_name, accounts: result.accounts.map(a => ({ name: a.name, currency: a.currency })) });
+            await updateRowAsUser(request, 'bank_connections', existing.id, { accounts: result.accounts, bank_name: result.bankName, valid_until: result.validUntil });
+            return response.status(200).json({ ok: true, bank: result.bankName, accounts: result.accounts.map(a => ({ name: a.name, currency: a.currency })) });
         }
         const row = await saveRowAsUser(request, 'bank_connections', {
             user_id: user.id,

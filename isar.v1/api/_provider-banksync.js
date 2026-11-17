@@ -71,8 +71,10 @@ async function bsRequest(path, user) {
     if (!reply.ok || (body && body.success === false)) {
         const problem = body && (body.error || body.message);
         const detail = (typeof problem === 'string' ? problem : (problem && problem.message)) || text.slice(0, 200) || 'no detail';
+        const code = body && body.code;
         let message;
-        if (reply.status === 401) message = 'BankSync rejected Isar\'s key (401). Check BANKSYNC_API_KEY in Vercel.';
+        if (reply.status === 409 && code === 'reauth_required') message = 'consent_expired';   // reconnect it in the BankSync app
+        else if (reply.status === 401) message = 'BankSync rejected Isar\'s key (401). Check BANKSYNC_API_KEY in Vercel.';
         else if (reply.status === 403) message = 'BankSync refused (403): ' + detail + '. The key may be missing the banks:read scope, or the plan may not include the API (Standard or above).';
         else if (reply.status === 429) message = 'BankSync is limiting requests (429). Isar will try again in ' + (reply.headers.get('retry-after') || '60') + ' seconds or later.';
         else message = 'BankSync said ' + reply.status + ': ' + detail;
@@ -148,7 +150,8 @@ export async function startConnect({ bank, state, redirectUrl, user }) {
 export async function completeConnect({ code, user }) {
     const bank = await findBank(code, user);
     if (!bank) throw new Error('That bank isn\'t in your BankSync account any more.');
-    const accounts = asList(dataOf(await bsRequest('/banks/' + encodeURIComponent(bank.id) + '/accounts', user)));
+    const accounts = asList(dataOf(await bsRequest('/banks/' + encodeURIComponent(bank.id) + '/accounts', user)))
+        .filter(account => account && account.id);
     const logo = safeLogo(bank.icon);
     return {
         bankName: bank.name || 'Bank',
@@ -159,7 +162,7 @@ export async function completeConnect({ code, user }) {
             uid: account.id,
             bankId: bank.id,
             name: account.accountName || null,
-            currency: account.currency || null,
+            currency: account.currency ? String(account.currency).toUpperCase() : null,
             product: account.accountType || null,
             logo: logo
         }))
@@ -170,9 +173,12 @@ export async function completeConnect({ code, user }) {
 export async function getBalance({ account, user }) {
     const accounts = asList(await cachedGet('/banks/' + encodeURIComponent(account.bankId) + '/accounts', user));
     const found = accounts.find(a => a.id === account.uid);
-    if (!found) throw new Error('account_not_found_in_banksync');
-    const balance = Number(found.balance ?? found.availableBalance);
-    if (!Number.isFinite(balance)) throw new Error('no_balance_reported');
+    if (!found) throw new Error('BankSync no longer lists this account. Connect the bank again in Isar.');
+    // Both are "number or null" in BankSync's spec. Number(null) is 0, so null must be caught
+    // first, or a missing balance would show as $0 instead of as a problem.
+    const raw = found.balance ?? found.availableBalance;
+    const balance = raw === null || raw === undefined || raw === '' ? NaN : Number(raw);
+    if (!Number.isFinite(balance)) throw new Error('BankSync hasn\'t received a balance for this account yet. Open the BankSync app and let it sync.');
     return { balance: balance, currency: found.currency || account.currency, balanceType: 'current' };
 }
 
@@ -202,10 +208,11 @@ function toIsarTransaction(tx, index) {
     };
 }
 
+// BankSync's spec: `meta.cursor` carries on to the next page while `meta.hasMore` is true.
 function nextCursorOf(body) {
-    if (!body) return null;
-    const data = body.data && !Array.isArray(body.data) ? body.data : {};
-    return body.nextCursor || (body.pagination && body.pagination.nextCursor) || (body.meta && body.meta.nextCursor) || data.nextCursor || null;
+    const meta = body && body.meta;
+    if (!meta || meta.hasMore === false) return null;
+    return typeof meta.cursor === 'string' && meta.cursor ? meta.cursor : null;
 }
 
 export async function getTransactions({ account, from, user }) {

@@ -59,9 +59,12 @@ function startApp() {
     // The daily summary waits for live rates, so it compares real numbers.
     fetchLiveRates(false).then(() => { if (!needsSetup()) showDailySummary(); });
     refreshHoldingPrices();             // live crypto prices (and, once the server exists, broker sync and share prices)
-    startCloudSync();                   // real accounts: compare with the online copy, then upload changes
-    // Coming back from a bank's approval page: save it, then pull the first balances.
-    finishBankConnect().then(() => syncConnectedBanks());
+    // Real accounts: compare with the online copy, then upload changes.
+    // Coming back from a bank's approval page: save it, then pull the first balances, but only
+    // once the online comparison is done (syncConnectedBanks waits for it), so a newer online
+    // copy can't replace the accounts it adds.
+    const cloudCheck = startCloudSync();
+    Promise.all([cloudCheck, finishBankConnect()]).then(() => syncConnectedBanks());
     // Back in the app after connecting a bank elsewhere (e.g. in Safari): show it straight away.
     document.addEventListener('visibilitychange', () => { if (!document.hidden) syncConnectedBanks(); });
     // Keep an open dashboard current without relying on a page reload.
