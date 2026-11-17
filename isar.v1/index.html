@@ -304,6 +304,17 @@
             </div>
         </div>
 
+        <!-- Bank screen: one bank with several connected accounts (e.g. Revolut's currencies).
+             Placed BEFORE the account screen, so an account opened from here slides in on top. -->
+        <div id="bank-screen" class="bank-screen">
+            <div class="header">
+                <button onclick="closeBank()" class="interactive-btn" title="Back" style="width: 38px; height: 38px; border-radius: 50%; background: #18181B; border: 1px solid #27272A; color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; padding-bottom: 2px;">‹</button>
+                <span id="bank-title" style="font-size: 18px; font-weight: 700;"></span>
+                <div style="width: 38px;"></div>
+            </div>
+            <div class="content" id="bank-content"></div>
+        </div>
+
         <!-- Account detail screen (opened by tapping an account row; sits inside the phone frame) -->
         <div id="account-screen" class="account-screen">
             <div class="header">

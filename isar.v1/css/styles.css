@@ -149,7 +149,7 @@
 
         @media (prefers-reduced-motion: reduce) {
             .rates-btn.refreshing .rates-icon, .pulsing, .status-swap, .value-refresh { animation: none; }
-            .profile-screen, .account-screen, .perf-screen, .info-screen, .phone-frame > .header, .phone-frame > .content, .phone-frame > .nav-bar { transition: none !important; }
+            .profile-screen, .bank-screen, .account-screen, .perf-screen, .info-screen, .phone-frame > .header, .phone-frame > .content, .phone-frame > .nav-bar { transition: none !important; }
             #secure-modal, #signout-dialog, #modal-content-box, #signout-dialog > div { animation: none !important; }
         }
 
@@ -166,12 +166,12 @@
            Like iOS: a screen slides in from the right while the app behind it drifts a little to the
            left, and slides back out on close. Closed screens wait off to the right, invisible
            (`visibility` switches off only AFTER the slide-out finishes). Swipe-back: ui.js. */
-        .profile-screen, .account-screen, .perf-screen, .info-screen {
+        .profile-screen, .bank-screen, .account-screen, .perf-screen, .info-screen {
             position: absolute; inset: 0; background: #09090B; z-index: 60; display: flex; flex-direction: column;
             transform: translateX(100%); visibility: hidden; box-shadow: -16px 0 40px rgba(0, 0, 0, 0.6);
             transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.42s;
         }
-        .profile-screen.open, .account-screen.open, .perf-screen.open, .info-screen.open {
+        .profile-screen.open, .bank-screen.open, .account-screen.open, .perf-screen.open, .info-screen.open {
             transform: translateX(0); visibility: visible;
             transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
         }

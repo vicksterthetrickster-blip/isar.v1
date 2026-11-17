@@ -20,12 +20,15 @@ function formatConvertedBalance(account) {
     return '≈ ' + formatAmount(value, activeCurrency, true);
 }
 
-function accountRowHTML(account) {
+// `insideBank`: listed on its bank's screen, where several accounts may share the bank's name
+// (Revolut sends no names), so those show their currency instead: "EUR account".
+function accountRowHTML(account, insideBank) {
     const converted = formatConvertedBalance(account);
+    const name = insideBank && account.name === account.bankName ? account.currency + ' account' : account.name;
     return '<div class="account-row" onclick="openAccount(\'' + account.id + '\')">' +
         '<div style="display: flex; align-items: center; gap: 12px; min-width: 0;">' +
             bankIconHTML(account, 36) +
-            '<div><div style="font-size: 14px; font-weight: 600;">' + escapeHTML(account.name) + '</div>' +
+            '<div><div style="font-size: 14px; font-weight: 600;">' + escapeHTML(name) + '</div>' +
             '<div style="font-size: 12px; color: #71717A;">' + escapeHTML(account.type) + '</div></div>' +
         '</div>' +
         '<div style="display: flex; align-items: center; gap: 8px;">' +
@@ -44,6 +47,109 @@ function getAccountsInDisplayOrder() {
     return linked.concat(ACCOUNTS.filter(a => !a.userLinked));
 }
 
+// --- Banks with several accounts (e.g. Revolut: one account per currency) ---
+// Each account stays its own entry in ACCOUNTS, so net worth, graphs, the Globe and snapshots
+// are unchanged. Only the home list folds a bank's accounts into ONE row; tapping it opens the
+// bank screen with every account. A bank with one account shows that account as before.
+
+// Which bank an account belongs to: its connection (one bank login), or for accounts saved
+// before connections were recorded, its provider + bank name. Typed-in accounts have none.
+function bankGroupKey(account) {
+    if (!account.provider || !account.bankAccountId) return null;
+    return account.connectionId || (account.provider + ':' + account.bankName);
+}
+
+function bankAccounts(key) {
+    return ACCOUNTS.filter(a => bankGroupKey(a) === key);
+}
+
+// The bank's "main" currency: its country's currency (Revolut AU -> AUD) if one of its accounts
+// uses it, otherwise the currency holding the most money.
+const BANK_COUNTRY_CURRENCY = { AU: 'AUD', GB: 'GBP', SE: 'SEK', NO: 'NOK', DK: 'DKK', PL: 'PLN' };
+const EURO_COUNTRIES = ['ES', 'IE', 'LT', 'FR', 'DE', 'IT', 'PT', 'NL', 'FI', 'BE', 'AT'];
+
+function bankMainCurrency(accounts) {
+    const country = (accounts.find(a => a.bankCountry) || {}).bankCountry;
+    const home = BANK_COUNTRY_CURRENCY[country] || (EURO_COUNTRIES.includes(country) ? 'EUR' : null);
+    if (home && accounts.some(a => a.currency === home)) return home;
+    const biggest = accounts.slice().sort((a, b) => Math.abs(convertToBase(b.balance, b.currency)) - Math.abs(convertToBase(a.balance, a.currency)))[0];
+    return biggest.currency;
+}
+
+function bankTotalIn(accounts, code) {
+    return accounts.reduce((sum, a) => sum + convertFromBase(convertToBase(a.balance, a.currency), code), 0);
+}
+
+// One row for the whole bank: total in its main currency, plus "≈" in the display currency.
+function bankRowHTML(accounts) {
+    const first = accounts[0];
+    const main = bankMainCurrency(accounts);
+    const converted = main === activeCurrency ? '' : '≈ ' + formatAmount(bankTotalIn(accounts, activeCurrency), activeCurrency, true);
+    return '<div class="account-row" onclick="openBank(\'' + first.id + '\')">' +
+        '<div style="display: flex; align-items: center; gap: 12px; min-width: 0;">' +
+            bankIconHTML(first, 36) +
+            '<div><div style="font-size: 14px; font-weight: 600;">' + escapeHTML(first.bankName || first.name) + '</div>' +
+            '<div style="font-size: 12px; color: #71717A;">' + accounts.length + ' accounts</div></div>' +
+        '</div>' +
+        '<div style="display: flex; align-items: center; gap: 8px;">' +
+            '<div style="text-align: right;">' +
+                '<div style="font-size: 14px; font-weight: 700;">' + formatAmount(bankTotalIn(accounts, main), main) + '</div>' +
+                (converted ? '<div style="font-size: 12px; color: #71717A; margin-top: 2px;">' + converted + '</div>' : '') +
+            '</div>' +
+            '<span style="font-size: 16px; color: #71717A;">›</span>' +
+        '</div>' +
+    '</div>';
+}
+
+// A group's rows: accounts from the same bank folded together, in the place of the bank's first account.
+function groupRowsHTML(list) {
+    const done = new Set();
+    return list.map(a => {
+        const key = bankGroupKey(a);
+        if (!key) return accountRowHTML(a);
+        if (done.has(key)) return '';
+        done.add(key);
+        const same = list.filter(x => bankGroupKey(x) === key);
+        return same.length > 1 ? bankRowHTML(same) : accountRowHTML(a);
+    }).join('');
+}
+
+function openBank(accountId) {
+    const account = ACCOUNTS.find(a => a.id === accountId);
+    if (!account || !bankGroupKey(account)) return;
+    openBankKey = bankGroupKey(account);
+    renderBankDetail();
+    document.getElementById('bank-screen').classList.add('open');
+    document.getElementById('bank-content').scrollTop = 0;
+}
+
+function closeBank() {
+    openBankKey = null;
+    document.getElementById('bank-screen').classList.remove('open');
+}
+
+// The bank screen: its total, then every account (tap one for its own screen, graph and transactions).
+function renderBankDetail() {
+    if (!openBankKey) return;
+    const accounts = bankAccounts(openBankKey);
+    if (!accounts.length) return closeBank();          // all its accounts were removed
+    const first = accounts[0];
+    const main = bankMainCurrency(accounts);
+    const converted = main === activeCurrency ? '' : '≈ ' + formatAmount(bankTotalIn(accounts, activeCurrency), activeCurrency, true);
+    const ordered = accounts.slice().sort((a, b) => convertToBase(b.balance, b.currency) - convertToBase(a.balance, a.currency));
+    document.getElementById('bank-title').innerText = first.bankName || first.name;
+    document.getElementById('bank-content').innerHTML =
+        '<div class="card" style="align-items: center; text-align: center; gap: 6px;">' +
+            bankIconHTML(first, 56) +
+            '<div style="font-size: 16px; font-weight: 700; margin-top: 4px;">' + escapeHTML(first.bankName || first.name) + '</div>' +
+            '<div style="font-size: 13px; color: #71717A;">' + accounts.length + (accounts.length === 1 ? ' account' : ' accounts') + ' · total in ' + main + '</div>' +
+            '<div style="font-size: 28px; font-weight: 800; margin-top: 4px;">' + formatAmount(bankTotalIn(accounts, main), main) + '</div>' +
+            (converted ? '<div style="font-size: 13px; color: #71717A;">' + converted + '</div>' : '') +
+        '</div>' +
+        '<div class="group-head"><span>Accounts</span><span></span></div>' +
+        ordered.map(a => accountRowHTML(a, true)).join('');
+}
+
 // Rows are redrawn on their own so changing
 // currency updates just the converted amounts.
 // One section per group (Cash, Investments, Assets, Debts) with a subtotal in the display currency.
@@ -54,8 +160,9 @@ function renderAccountRows() {
         if (!list.length) return '';
         const total = list.reduce((sum, a) => sum + convertFromBase(convertToBase(a.balance, a.currency), activeCurrency), 0);
         return '<div class="group-head"><span>' + group.label + '</span><span>' + formatAmount(total, activeCurrency, true) + '</span></div>' +
-            list.map(a => accountRowHTML(a)).join('');
+            groupRowsHTML(list);
     }).join('');
+    renderBankDetail();          // an open bank screen follows new balances and currency changes
 }
 
 function renderAccounts() {

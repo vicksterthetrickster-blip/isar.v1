@@ -34,6 +34,7 @@ async function syncConnection(connection, request, user) {
     const expired = connection.valid_until && new Date(connection.valid_until) < new Date();
     const base = {
         provider: connection.provider || 'enablebanking',
+        connectionId: connection.id,            // the app groups a bank's accounts by this (not a secret)
         bank: connection.bank_name || 'Bank',
         country: connection.bank_country,
         logo: null

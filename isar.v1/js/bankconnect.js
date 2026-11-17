@@ -385,6 +385,9 @@ function applyIncomingAccount(incoming) {
     if (existing) {
         let changed = false;
         if (existing.logoUrl !== incoming.logo) { existing.logoUrl = incoming.logo; changed = true; }
+        // Which bank login it belongs to, so the home list shows one row per bank (accounts.js).
+        if (incoming.connectionId && existing.connectionId !== incoming.connectionId) { existing.connectionId = incoming.connectionId; changed = true; }
+        if (incoming.country && existing.bankCountry !== incoming.country) { existing.bankCountry = incoming.country; changed = true; }
         if (existing.balance !== incoming.balance) {
             existing.balance = incoming.balance;
             recordBalanceToday(existing);       // keeps its history, same as a typed update
@@ -399,6 +402,8 @@ function applyIncomingAccount(incoming) {
         id: incoming.provider + '-' + incoming.uid,
         provider: incoming.provider,
         bankAccountId: incoming.uid,
+        connectionId: incoming.connectionId,
+        bankCountry: incoming.country,
         bankName: bankName,
         name: incoming.name || bankName,
         type: 'Connected account',

@@ -32,6 +32,7 @@ function initDismissMenus() {
 // --- Slide-over screens ---
 // The function that closes each screen (used by swipe-back).
 const SCREEN_CLOSERS = {
+    'bank-screen': () => closeBank(),
     'account-screen': () => closeAccount(),
     'perf-screen': () => closePerformance(),
     'profile-screen': () => closeProfile(),

@@ -17,6 +17,7 @@ let ratesNotPublished = [];           // currencies the last live fetch didn't i
 const TIMEFRAMES = { '3 Months': 3, '6 Months': 6, '1 Year': 12, '2 Years': 24, 'All Time': null };
 let activeTimeframe = '6 Months';
 let openAccountId = null;                 // account whose detail screen is open
+let openBankKey = null;                   // bank whose screen is open (bankGroupKey in accounts.js)
 let accountTimeframe = '6 Months';        // window for the account detail graph
 let acctViewCurrency = null;                // this account's own display currency; local only, never saved
 let acctTxFilter = 'all';                   // money in/out list on the account screen: 'all', 'in' or 'out'
