@@ -179,6 +179,7 @@ function saveLinkedAccounts() {
         holdings: a.holdings, holdingsSource: a.holdingsSource,     // investments only (holdings.js)
         provider: a.provider, bankAccountId: a.bankAccountId, logoUrl: a.logoUrl,   // connected banks only (bankconnect.js)
         connectionId: a.connectionId, bankCountry: a.bankCountry,                   // which bank login; groups a bank's accounts (accounts.js)
+        parentName: a.parentName, currencyFixed: a.currencyFixed,                   // card it belongs to; a currency you set yourself
         transactions: a.transactions, txFetchedAt: a.txFetchedAt, txError: a.txError
     }));
     saveData();
@@ -205,6 +206,12 @@ function updateLinkedAccount(id, changes) {
     }
     if (typeof changes.type === 'string' && changes.type.trim()) account.type = changes.type.trim();
     if (typeof changes.linkedTo === 'string') account.linkedTo = changes.linkedTo || undefined;
+    // Connected accounts only: correct a currency the bank labels wrongly. Only the label changes
+    // (the bank's numbers were always in the real currency), and syncs keep it (bankconnect.js).
+    if (typeof changes.currencyFixed === 'string' && account.bankAccountId && CURRENCY_META[changes.currencyFixed]) {
+        account.currencyFixed = changes.currencyFixed;
+        account.currency = changes.currencyFixed;
+    }
     if (typeof changes.balance === 'number' && isFinite(changes.balance)) {
         account.balance = changes.balance;
         const today = localISODate(new Date());

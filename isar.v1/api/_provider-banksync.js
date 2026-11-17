@@ -161,6 +161,94 @@ export async function startConnect({ bank, state, redirectUrl, user }) {
     return redirectUrl + '?code=' + encodeURIComponent(found.id) + '&state=' + encodeURIComponent(state);
 }
 
+// --- One card, several currencies (CommBank Travel Money, Revolut) ---
+// Australia's open-banking standard sends a multi-currency card as ONE account with extra
+// "purses" (one balance per currency). BankSync's documented account has only one amount and
+// one currency, so purses may be missing, or passed along under a name it doesn't document.
+// So this looks anywhere in the account (up to 3 levels deep) for a list of
+// { currency, amount } items, whatever it's called, and makes each one its own Isar account
+// ("Travel Money Card · EUR"). The bank screen shows them together under the card.
+
+// Both are "number or null" in BankSync's spec. Number(null) is 0, so null is caught first,
+// or a missing balance would show as $0 instead of as a problem.
+function numberOrNaN(value) {
+    if (value && typeof value === 'object') value = value.amount ?? value.value;
+    return value === null || value === undefined || value === '' ? NaN : Number(value);
+}
+
+const PURSE_AMOUNT_KEYS = ['amount', 'balance', 'currentBalance', 'availableBalance', 'value'];
+
+function purseAmount(item) {
+    for (const key of PURSE_AMOUNT_KEYS) {
+        const n = numberOrNaN(item[key]);
+        if (Number.isFinite(n)) return n;
+    }
+    return NaN;
+}
+
+function isPurse(item) {
+    return item && typeof item === 'object' && !Array.isArray(item) &&
+        ISO_CURRENCIES.has(String(item.currency || '').toUpperCase()) && Number.isFinite(purseAmount(item));
+}
+
+function findPurses(value, depth = 0) {
+    if (!value || typeof value !== 'object' || depth > 3) return [];
+    for (const [key, inner] of Object.entries(value)) {
+        if (key === 'links') continue;
+        if (Array.isArray(inner) && inner.length && inner.every(isPurse)) {
+            return inner.map(p => ({ currency: String(p.currency).toUpperCase(), balance: purseAmount(p) }));
+        }
+        if (inner && typeof inner === 'object' && !Array.isArray(inner)) {
+            const found = findPurses(inner, depth + 1);
+            if (found.length) return found;
+        }
+    }
+    return [];
+}
+
+// One BankSync account -> one or more Isar accounts, each with ONE currency and its balance.
+function expandAccount(account) {
+    const name = account.accountName || null;
+    const currency = currencyOf(account);
+    const balance = numberOrNaN(account.balance ?? account.availableBalance);
+    const purses = findPurses(account);
+    if (!purses.length) return [{ uid: account.id, accountId: account.id, name: name, currency: currency, balance: balance, product: account.accountType || null }];
+
+    const label = name || 'Account';
+    const list = purses.map(p => ({
+        uid: account.id + ':' + p.currency, accountId: account.id, parentName: label, purseCurrency: p.currency,
+        name: label + ' · ' + p.currency, currency: p.currency, balance: p.balance, product: account.accountType || null
+    }));
+    // The main balance is a currency of its own, unless a purse already covers it.
+    if (Number.isFinite(balance) && balance !== 0 && !purses.some(p => p.currency === currency || p.balance === balance)) {
+        // Its label may be the "missing means AUD" default, so its transactions are "everything
+        // not in another purse" rather than "only AUD".
+        list.unshift({ uid: account.id, accountId: account.id, parentName: label, otherCurrencies: purses.map(p => p.currency),
+            name: label + ' · ' + currency, currency: currency, balance: balance, product: account.accountType || null });
+    }
+    return list;
+}
+
+// What's saved in bank_connections for each Isar account (no balances: those are read live).
+function savedShape(expanded, bankId, logo) {
+    return {
+        uid: expanded.uid,
+        accountId: expanded.accountId,
+        bankId: bankId,
+        name: expanded.name,
+        parentName: expanded.parentName || null,
+        purseCurrency: expanded.purseCurrency || null,
+        otherCurrencies: expanded.otherCurrencies || null,
+        currency: expanded.currency,
+        product: expanded.product,
+        logo: logo
+    };
+}
+
+async function liveAccounts(bankId, user) {
+    return asList(await cachedGet('/banks/' + encodeURIComponent(bankId) + '/accounts', user)).filter(a => a && a.id);
+}
+
 export async function completeConnect({ code, user }) {
     const bank = await findBank(code, user);
     if (!bank) throw new Error('That bank isn\'t in your BankSync account any more.');
@@ -172,28 +260,38 @@ export async function completeConnect({ code, user }) {
         country: 'AU',
         sessionId: bank.id,              // not a secret: useless without the key, which only the owner's requests can use
         validUntil: null,                // consent is managed in BankSync's app
-        accounts: accounts.map(account => ({
-            uid: account.id,
-            bankId: bank.id,
-            name: account.accountName || null,
-            currency: currencyOf(account),
-            product: account.accountType || null,
-            logo: logo
-        }))
+        accounts: accounts.flatMap(expandAccount).map(e => savedShape(e, bank.id, logo))
     };
+}
+
+// The bank's accounts as BankSync lists them right now, in the saved shape. bank-sync.js uses
+// this to keep the saved list current (new accounts, a card that gained a currency).
+export async function refreshAccounts({ connection, user }) {
+    const bankId = connection.session_id;
+    const logo = (asList(connection.accounts)[0] || {}).logo || null;
+    return (await liveAccounts(bankId, user)).flatMap(expandAccount).map(e => savedShape(e, bankId, logo));
+}
+
+// Exactly what BankSync sends for this bank's accounts, for the "What BankSync sends" screen,
+// so a reading problem can be seen instead of guessed. Account numbers are cut to the last 4.
+export async function rawAccounts({ connection, user }) {
+    return (await liveAccounts(connection.session_id, user)).map(a => {
+        const copy = JSON.parse(JSON.stringify(a));
+        if (typeof copy.accountNumber === 'string') copy.accountNumber = '…' + copy.accountNumber.slice(-4);
+        delete copy.links;
+        return copy;
+    });
 }
 
 // --- Balances: one request per bank covers all its accounts ---
 export async function getBalance({ account, user }) {
-    const accounts = asList(await cachedGet('/banks/' + encodeURIComponent(account.bankId) + '/accounts', user));
-    const found = accounts.find(a => a.id === account.uid);
+    const accountId = account.accountId || account.uid;
+    const found = (await liveAccounts(account.bankId, user)).find(a => a.id === accountId);
     if (!found) throw new Error('BankSync no longer lists this account. Connect the bank again in Isar.');
-    // Both are "number or null" in BankSync's spec. Number(null) is 0, so null must be caught
-    // first, or a missing balance would show as $0 instead of as a problem.
-    const raw = found.balance ?? found.availableBalance;
-    const balance = raw === null || raw === undefined || raw === '' ? NaN : Number(raw);
-    if (!Number.isFinite(balance)) throw new Error('BankSync hasn\'t received a balance for this account yet. Open the BankSync app and let it sync.');
-    return { balance: balance, currency: currencyOf(found) || account.currency, balanceType: 'current' };
+    const mine = expandAccount(found).find(e => e.uid === account.uid);
+    if (!mine) throw new Error('BankSync no longer lists this currency on the account.');
+    if (!Number.isFinite(mine.balance)) throw new Error('BankSync hasn\'t received a balance for this account yet. Open the BankSync app and let it sync.');
+    return { balance: mine.balance, currency: mine.currency || account.currency, balanceType: 'current' };
 }
 
 // --- Transactions ---
@@ -231,7 +329,11 @@ function nextCursorOf(body) {
 
 export async function getTransactions({ account, from, user }) {
     const to = new Date().toISOString().slice(0, 10);
-    const path = '/banks/' + encodeURIComponent(account.bankId) + '/accounts/' + encodeURIComponent(account.uid) + '/transactions';
+    const path = '/banks/' + encodeURIComponent(account.bankId) + '/accounts/' + encodeURIComponent(account.accountId || account.uid) + '/transactions';
+    // One currency of a multi-currency card: keep only that currency's transactions (or, for
+    // the card's main balance, everything not in one of its other currencies).
+    const only = account.purseCurrency || null;
+    const others = Array.isArray(account.otherCurrencies) ? account.otherCurrencies : [];
     const transactions = [];
     let cursor = null;
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -239,6 +341,9 @@ export async function getTransactions({ account, from, user }) {
         const data = dataOf(body);
         const list = Array.isArray(data) ? data : asList(data && (data.transactions || data.items));
         list.forEach(tx => {
+            const txCurrency = tx.currency ? String(tx.currency).toUpperCase() : null;
+            if (txCurrency && only && txCurrency !== only) return;
+            if (txCurrency && others.includes(txCurrency)) return;
             const converted = toIsarTransaction(tx, transactions.length);
             if (converted) transactions.push(converted);
         });

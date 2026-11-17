@@ -5,7 +5,7 @@
 // their own), then asks each connection's provider for every account's current balance.
 // One bank having a bad day doesn't break the rest: errors are reported per account.
 
-import { requireUser, readRowsAsUser } from './_server.js';
+import { requireUser, readRowsAsUser, updateRowAsUser } from './_server.js';
 import { providerOf } from './_providers.js';
 
 export default async function handler(request, response) {
@@ -41,12 +41,23 @@ async function syncConnection(connection, request, user) {
     };
     try { base.logo = provider ? provider.logoFor(connection) : null; } catch (e) { /* no logo is fine */ }
 
-    const accounts = Array.isArray(connection.accounts) ? connection.accounts : [];
+    let accounts = Array.isArray(connection.accounts) ? connection.accounts : [];
+    // Providers that can list accounts live (BankSync) keep the saved list current: a new
+    // account, or a card that turned out to hold several currencies, shows without reconnecting.
+    if (provider && provider.refreshAccounts && !expired) {
+        try {
+            const live = await provider.refreshAccounts({ connection, request, user });
+            if (live.length && JSON.stringify(live) !== JSON.stringify(accounts)) {
+                await updateRowAsUser(request, 'bank_connections', connection.id, { accounts: live });
+                accounts = live;
+            }
+        } catch (e) { /* keep the saved list; the balance reads below report the problem */ }
+    }
     if (!accounts.length) return [{ ...base, uid: null, error: 'no_accounts' }];
 
     const results = [];
     for (const account of accounts) {
-        const entry = { ...base, uid: account.uid, name: account.name, currency: upper(account.currency) };
+        const entry = { ...base, uid: account.uid, name: account.name, parent: account.parentName || null, currency: upper(account.currency) };
         if (!provider) {
             entry.error = 'unknown_provider';
         } else if (expired) {

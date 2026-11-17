@@ -24,7 +24,9 @@ function formatConvertedBalance(account) {
 // (Revolut sends no names), so those show their currency instead: "EUR account".
 function accountRowHTML(account, insideBank) {
     const converted = formatConvertedBalance(account);
-    const name = insideBank && account.name === account.bankName ? account.currency + ' account' : account.name;
+    const name = !insideBank ? account.name
+        : account.parentName ? account.currency                                  // one currency of a card
+        : account.name === account.bankName ? account.currency + ' account' : account.name;
     return '<div class="account-row" onclick="openAccount(\'' + account.id + '\')">' +
         '<div style="display: flex; align-items: center; gap: 12px; min-width: 0;">' +
             bankIconHTML(account, 36) +
@@ -147,7 +149,29 @@ function renderBankDetail() {
             (converted ? '<div style="font-size: 13px; color: #71717A;">' + converted + '</div>' : '') +
         '</div>' +
         '<div class="group-head"><span>Accounts</span><span></span></div>' +
-        ordered.map(a => accountRowHTML(a, true)).join('');
+        bankAccountListHTML(ordered) +
+        (first.provider === 'banksync' && first.connectionId ? bankRawButtonHTML(first.connectionId) : '');
+}
+
+// A card holding several currencies (CommBank Travel Money) shows as its own heading with its
+// total, and each currency beneath it ("EUR", "CNY"). Other accounts are listed as usual.
+function bankAccountListHTML(ordered) {
+    const done = new Set();
+    return ordered.map(a => {
+        if (!a.parentName) return accountRowHTML(a, true);
+        if (done.has(a.parentName)) return '';
+        done.add(a.parentName);
+        const purses = ordered.filter(x => x.parentName === a.parentName);
+        const main = bankMainCurrency(purses);
+        return '<div class="group-head" style="margin-top: 6px;"><span>' + escapeHTML(a.parentName) + ' · ' + purses.length + ' currencies</span>' +
+                '<span>' + formatAmount(bankTotalIn(purses, main), main, true) + '</span></div>' +
+            purses.map(p => accountRowHTML(p, true)).join('');
+    }).join('');
+}
+
+function bankRawButtonHTML(connectionId) {
+    return '<button class="interactive-btn" onclick="showBankRawData(\'' + connectionId + '\')" style="' + ACCT_BTN_STYLE +
+        'flex: none; width: 100%; margin-top: 12px; background: #18181B; color: #A1A1AA; border: 1px solid #27272A;">What BankSync sends</button>';
 }
 
 // Rows are redrawn on their own so changing
@@ -376,11 +400,19 @@ function openEditAccount() {
     if (!account) return;
     const linkable = MANUAL_KINDS[account.kind] && MANUAL_KINDS[account.kind].linkable;
     const properties = ACCOUNTS.filter(a => a.kind === 'property');
+    // A connected account's currency can be corrected: the bank's numbers are already in the
+    // real currency, only its label can be wrong (Australian banks leave it out, which means "AUD").
+    const currencyField = account.bankAccountId
+        ? '<label style="display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 12px; color: #A1A1AA;">Currency (if the bank labels it wrongly)' +
+            '<select id="acct-form-currency" class="form-select">' +
+                Object.keys(CURRENCY_META).map(code => '<option value="' + code + '"' + (code === account.currency ? ' selected' : '') + '>' + CURRENCY_META[code].flag + ' ' + code + '</option>').join('') +
+            '</select></label>'
+        : '<p style="font-size: 12px; color: #71717A; margin-top: -6px;">Currency can\'t be changed, because the history is stored in ' + account.currency + '. To change it, remove the account and add it again.</p>';
     showAccountForm('Edit account',
         formInputHTML('acct-form-name', 'Name', account.name) +
         formInputHTML('acct-form-type', 'Type (e.g. Savings, Checking)', account.type) +
         (linkable && properties.length ? linkSelectHTML(properties, account.linkedTo || '') : '') +
-        '<p style="font-size: 12px; color: #71717A; margin-top: -6px;">Currency can\'t be changed, because the history is stored in ' + account.currency + '. To change it, remove the account and add it again.</p>',
+        currencyField,
         'saveEditedAccount()');
 }
 
@@ -389,6 +421,10 @@ function saveEditedAccount() {
     const type = document.getElementById('acct-form-type').value.trim();
     if (!name) return showAccountFormError('Enter a name.');
     const link = document.getElementById('manual-link');
-    updateLinkedAccount(openAccountId, link ? { name: name, type: type, linkedTo: link.value } : { name: name, type: type });
+    const changes = link ? { name: name, type: type, linkedTo: link.value } : { name: name, type: type };
+    const currency = document.getElementById('acct-form-currency');
+    const account = ACCOUNTS.find(a => a.id === openAccountId);
+    if (currency && account && currency.value !== account.currency) changes.currencyFixed = currency.value;
+    updateLinkedAccount(openAccountId, changes);
     closeModalAndReset();
 }

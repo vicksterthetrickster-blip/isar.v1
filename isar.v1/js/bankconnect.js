@@ -355,6 +355,7 @@ async function syncConnectedBanks() {
                 problems.push(bankAccountLabel(incoming) + ': ' + e.message);
             }
         });
+        if (removeAccountsNoLongerListed(data.accounts)) changed = true;
 
         for (const account of ACCOUNTS.filter(a => a.bankAccountId)) {
             if (await syncBankTransactions(account)) changed = true;
@@ -376,14 +377,16 @@ function applyIncomingAccount(incoming) {
     if (typeof incoming.balance !== 'number' || !Number.isFinite(incoming.balance)) {
         return bankAccountLabel(incoming) + ': the bank didn\'t send a balance.';
     }
-    const currency = String(incoming.currency || '').toUpperCase();
+    const existing = ACCOUNTS.find(a => a.provider === incoming.provider && a.bankAccountId === incoming.uid);
+    // A currency you set yourself (Edit on the account screen) always wins over the bank's label.
+    const currency = (existing && existing.currencyFixed) || String(incoming.currency || '').toUpperCase();
     if (!CURRENCY_META[currency]) {
         return bankAccountLabel(incoming) + ': Isar doesn\'t support the currency "' + (incoming.currency || 'none') + '" yet.';
     }
 
-    const existing = ACCOUNTS.find(a => a.provider === incoming.provider && a.bankAccountId === incoming.uid);
     if (existing) {
         let changed = false;
+        if ((incoming.parent || undefined) !== existing.parentName) { existing.parentName = incoming.parent || undefined; changed = true; }
         if (existing.logoUrl !== incoming.logo) { existing.logoUrl = incoming.logo; changed = true; }
         // Which bank login it belongs to, so the home list shows one row per bank (accounts.js).
         if (incoming.connectionId && existing.connectionId !== incoming.connectionId) { existing.connectionId = incoming.connectionId; changed = true; }
@@ -408,6 +411,7 @@ function applyIncomingAccount(incoming) {
         bankAccountId: incoming.uid,
         connectionId: incoming.connectionId,
         bankCountry: incoming.country,
+        parentName: incoming.parent || undefined,      // the card it's one currency of (accounts.js)
         bankName: bankName,
         name: incoming.name || bankName,
         type: 'Connected account',
@@ -422,6 +426,41 @@ function applyIncomingAccount(incoming) {
         userLinked: true
     });
     return 'changed';
+}
+
+// "What BankSync sends": the provider's own data for this bank, exactly as it arrives, so a
+// reading problem (a wrong currency, a missing balance) can be seen instead of guessed.
+// Account numbers are cut to the last 4 by the server.
+async function showBankRawData(connectionId) {
+    openInfoScreen('What BankSync sends', '<p class="info-note">Loading…</p>');
+    try {
+        const data = await callServer('/api/bank-raw?connection=' + encodeURIComponent(connectionId));
+        document.getElementById('info-content').innerHTML =
+            '<p class="info-note" style="text-align: left;">Exactly what BankSync sends Isar for ' + escapeHTML(data.bank) +
+            ', one block per account. Isar reads <strong>balance</strong> and <strong>currency</strong>, and a list of currencies if a card has one.</p>' +
+            '<pre style="white-space: pre-wrap; word-break: break-all; font-size: 11px; color: #D4D4D8; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; user-select: text; -webkit-user-select: text;">' +
+                escapeHTML(JSON.stringify(data.accounts, null, 2)) + '</pre>';
+    } catch (e) {
+        document.getElementById('info-content').innerHTML = '<p class="info-note">' + escapeHTML(e.message) + '</p>';
+    }
+}
+
+// An account the bank no longer lists (e.g. the old single Travel Money account, now split
+// into one account per currency) is removed, but only when its bank answered this time, so a
+// bank that's down never makes accounts disappear.
+function removeAccountsNoLongerListed(incomingList) {
+    const listed = new Set(incomingList.filter(i => i.uid).map(i => i.provider + ':' + i.uid));
+    const answered = new Set(incomingList.filter(i => i.uid && i.connectionId).map(i => i.connectionId));
+    let removed = false;
+    for (let i = ACCOUNTS.length - 1; i >= 0; i--) {
+        const a = ACCOUNTS[i];
+        if (!a.bankAccountId || !a.connectionId || !answered.has(a.connectionId)) continue;
+        if (listed.has(a.provider + ':' + a.bankAccountId)) continue;
+        ACCOUNTS.splice(i, 1);
+        if (openAccountId === a.id) closeAccount();
+        removed = true;
+    }
+    return removed;
 }
 
 function bankAccountLabel(incoming) {
