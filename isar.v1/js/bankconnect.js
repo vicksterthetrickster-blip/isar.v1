@@ -388,6 +388,10 @@ function applyIncomingAccount(incoming) {
         // Which bank login it belongs to, so the home list shows one row per bank (accounts.js).
         if (incoming.connectionId && existing.connectionId !== incoming.connectionId) { existing.connectionId = incoming.connectionId; changed = true; }
         if (incoming.country && existing.bankCountry !== incoming.country) { existing.bankCountry = incoming.country; changed = true; }
+        // The bank corrected the account's currency (e.g. Revolut's THB account first arrived
+        // labelled AUD). Its amounts were always in the real currency, so only the label changes;
+        // its history and transactions stay as they are.
+        if (existing.currency !== currency) { existing.currency = currency; changed = true; }
         if (existing.balance !== incoming.balance) {
             existing.balance = incoming.balance;
             recordBalanceToday(existing);       // keeps its history, same as a typed update

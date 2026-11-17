@@ -117,6 +117,20 @@ function isConnected(bank) {
 
 const BANK_ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
 
+// An account's real currency. Australia's open-banking standard says a missing currency means
+// AUD, so Revolut's EUR and THB accounts arrive labelled "AUD" even though their amounts are in
+// euros and baht. The name says the truth ("EUR Transaction Account"), so a currency code in
+// the name wins over a reported AUD. A non-AUD reported currency is always trusted.
+const ISO_CURRENCIES = new Set(typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('currency') : []);
+
+export function currencyOf(account) {
+    const reported = account.currency ? String(account.currency).trim().toUpperCase() : null;
+    if (reported && reported !== 'AUD') return reported;
+    const words = String(account.accountName || '') + ' ' + String(account.accountType || '');
+    const named = (words.match(/\b[A-Z]{3}\b/g) || []).find(code => ISO_CURRENCIES.has(code));
+    return named || reported;
+}
+
 async function findBank(id, user) {
     if (!BANK_ID_PATTERN.test(String(id || ''))) return null;
     const banks = asList(await cachedGet('/banks', user));
@@ -162,7 +176,7 @@ export async function completeConnect({ code, user }) {
             uid: account.id,
             bankId: bank.id,
             name: account.accountName || null,
-            currency: account.currency ? String(account.currency).toUpperCase() : null,
+            currency: currencyOf(account),
             product: account.accountType || null,
             logo: logo
         }))
@@ -179,7 +193,7 @@ export async function getBalance({ account, user }) {
     const raw = found.balance ?? found.availableBalance;
     const balance = raw === null || raw === undefined || raw === '' ? NaN : Number(raw);
     if (!Number.isFinite(balance)) throw new Error('BankSync hasn\'t received a balance for this account yet. Open the BankSync app and let it sync.');
-    return { balance: balance, currency: found.currency || account.currency, balanceType: 'current' };
+    return { balance: balance, currency: currencyOf(found) || account.currency, balanceType: 'current' };
 }
 
 // --- Transactions ---
