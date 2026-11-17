@@ -10,8 +10,9 @@
 // provider keys are configured (true/false only — never the keys themselves).
 //
 // The env var names the later bank/price functions will look for:
-//   ENABLE_BANKING_APP_ID, ENABLE_BANKING_PRIVATE_KEY   (CaixaBank, Revolut — EU/UK)
-//   BASIQ_API_KEY                                        (CommBank — Australia)
+//   ENABLE_BANKING_APP_ID, ENABLE_BANKING_PRIVATE_KEY   (imagin, CaixaBank — EU/UK)
+//   BANKSYNC_API_KEY                                     (CommBank, Revolut AU — owner only)
+//   ISAR_OWNER_USER_ID                                   (the one Isar user id allowed to use BankSync)
 //   PRICE_API_KEY                                        (share and ETF prices)
 
 // The Supabase project. Both values are public by design (same ones as in js/auth.js);
@@ -28,7 +29,8 @@ export default async function handler(request, response) {
         signedIn: false,
         providers: {
             enableBanking: !!(process.env.ENABLE_BANKING_APP_ID && process.env.ENABLE_BANKING_PRIVATE_KEY),
-            basiq: !!process.env.BASIQ_API_KEY,
+            banksync: !!process.env.BANKSYNC_API_KEY,
+            ownerSet: !!process.env.ISAR_OWNER_USER_ID,
             prices: !!process.env.PRICE_API_KEY
         }
     };
@@ -45,6 +47,8 @@ export default async function handler(request, response) {
                 const user = await check.json();
                 report.signedIn = true;
                 report.email = user.email;
+                report.userId = user.id;          // your own id, shown only to you
+                report.isOwner = !!process.env.ISAR_OWNER_USER_ID && process.env.ISAR_OWNER_USER_ID.trim() === user.id;
             }
         } catch (e) { /* Supabase unreachable: report stays signedIn: false */ }
     }

@@ -30,9 +30,10 @@ export default async function handler(request, response) {
     const state = makeState(user.id, provider.name);
 
     try {
-        const url = await provider.startConnect({ bank: { name, country }, state, redirectUrl, request });
+        const bankId = String(body.bankId || '').slice(0, 100);    // BankSync's id for the bank, if it has one
+        const url = await provider.startConnect({ bank: { name, country, id: bankId }, state, redirectUrl, request, user });
         response.status(200).json({ ok: true, url: url });
     } catch (error) {
-        response.status(502).json({ ok: false, error: error.message });
+        response.status(error.code === 'owner_only' ? 403 : 502).json({ ok: false, error: error.message });
     }
 }

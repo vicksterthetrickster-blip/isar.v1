@@ -5,13 +5,16 @@
 // knows provider details. See the Provider strategy note.
 
 import * as enablebanking from './_provider-enablebanking.js';
+import * as banksync from './_provider-banksync.js';
 
-const PROVIDERS = { enablebanking };
+const PROVIDERS = { enablebanking, banksync };
 
-// Europe and the UK (PSD2). Australia (CDR) will route to its own adapter.
+// Europe and the UK (PSD2) go through Enable Banking.
 const PROVIDER_BY_COUNTRY = {};
 ['ES', 'GB', 'IE', 'LT', 'FR', 'DE', 'IT', 'PT', 'NL', 'FI', 'SE', 'NO', 'DK', 'PL', 'BE', 'AT']
     .forEach(country => { PROVIDER_BY_COUNTRY[country] = 'enablebanking'; });
+// Australia (CDR) goes through BankSync, which only ever answers for the owner (see its file).
+PROVIDER_BY_COUNTRY.AU = 'banksync';
 
 export function getProvider(name) {
     return Object.hasOwn(PROVIDERS, name) ? PROVIDERS[name] : null;

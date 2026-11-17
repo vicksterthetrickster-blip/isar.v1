@@ -8,7 +8,7 @@
 // The connection is saved AS THE PERSON THEMSELVES: the database's "own rows only" rules make
 // it impossible to file this under anyone else's account. No master key exists.
 
-import { requireUser, saveRowAsUser, checkState } from './_server.js';
+import { requireUser, saveRowAsUser, readRowsAsUser, checkState } from './_server.js';
 import { getProvider } from './_providers.js';
 
 export default async function handler(request, response) {
@@ -29,7 +29,13 @@ export default async function handler(request, response) {
     if (!provider) return response.status(400).json({ ok: false, error: 'Unknown bank provider.' });
 
     try {
-        const result = await provider.completeConnect({ code, request });
+        const result = await provider.completeConnect({ code, request, user });
+        // Linking the same BankSync bank twice would show its accounts twice; keep the first.
+        const existing = (await readRowsAsUser(request, 'bank_connections', 'provider,session_id,bank_name'))
+            .find(c => (c.provider || 'enablebanking') === provider.name && c.session_id === result.sessionId);
+        if (existing) {
+            return response.status(200).json({ ok: true, bank: existing.bank_name, accounts: result.accounts.map(a => ({ name: a.name, currency: a.currency })) });
+        }
         const row = await saveRowAsUser(request, 'bank_connections', {
             user_id: user.id,
             provider: provider.name,
@@ -45,6 +51,6 @@ export default async function handler(request, response) {
             accounts: result.accounts.map(a => ({ name: a.name, currency: a.currency }))
         });
     } catch (error) {
-        response.status(502).json({ ok: false, error: error.message });
+        response.status(error.code === 'owner_only' ? 403 : 502).json({ ok: false, error: error.message });
     }
 }

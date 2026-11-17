@@ -17,9 +17,10 @@ const BANK_RETURN_KEY = 'isar.pendingBankReturn';
 const BANK_RETURN_MAX_AGE_MS = 25 * 60 * 1000;    // the server's ticket lasts 30 minutes
 const BANK_COUNTRY_KEY = 'isar.bankCountry';      // the country last picked in "Connect a bank"
 
-// Countries Isar can connect today (Enable Banking covers Europe).
+// Countries Isar can connect today (Enable Banking covers Europe; BankSync covers Australia,
+// for the owner only: anyone else picking Australia is told it isn't available).
 const BANK_COUNTRIES = [
-    ['ES', '🇪🇸 Spain'], ['GB', '🇬🇧 United Kingdom'], ['IE', '🇮🇪 Ireland'], ['LT', '🇱🇹 Lithuania'],
+    ['AU', '🇦🇺 Australia'], ['ES', '🇪🇸 Spain'], ['GB', '🇬🇧 United Kingdom'], ['IE', '🇮🇪 Ireland'], ['LT', '🇱🇹 Lithuania'],
     ['FR', '🇫🇷 France'], ['DE', '🇩🇪 Germany'], ['IT', '🇮🇹 Italy'], ['PT', '🇵🇹 Portugal'],
     ['NL', '🇳🇱 Netherlands'], ['FI', '🇫🇮 Finland'], ['SE', '🇸🇪 Sweden'], ['NO', '🇳🇴 Norway'],
     ['DK', '🇩🇰 Denmark'], ['PL', '🇵🇱 Poland'], ['BE', '🇧🇪 Belgium'], ['AT', '🇦🇹 Austria']
@@ -32,7 +33,9 @@ const TIMEZONE_COUNTRY = {
     'Europe/Dublin': 'IE', 'Europe/Vilnius': 'LT', 'Europe/Paris': 'FR', 'Europe/Berlin': 'DE',
     'Europe/Rome': 'IT', 'Europe/Lisbon': 'PT', 'Atlantic/Madeira': 'PT', 'Atlantic/Azores': 'PT',
     'Europe/Amsterdam': 'NL', 'Europe/Helsinki': 'FI', 'Europe/Stockholm': 'SE', 'Europe/Oslo': 'NO',
-    'Europe/Copenhagen': 'DK', 'Europe/Warsaw': 'PL', 'Europe/Brussels': 'BE', 'Europe/Vienna': 'AT'
+    'Europe/Copenhagen': 'DK', 'Europe/Warsaw': 'PL', 'Europe/Brussels': 'BE', 'Europe/Vienna': 'AT',
+    'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Australia/Brisbane': 'AU', 'Australia/Perth': 'AU',
+    'Australia/Adelaide': 'AU', 'Australia/Hobart': 'AU', 'Australia/Darwin': 'AU'
 };
 
 function guessBankCountry() {
@@ -102,9 +105,15 @@ function openBankConnect() {
 let bankChoices = [];
 
 // Each bank comes with the provider that connects it; the server picks it by country.
+// The sign-in pass goes along because some lists are private (Australia lists the owner's own
+// BankSync banks, so the server checks who's asking).
 function fetchBankList(country) {
     if (!bankListCache[country]) {
-        bankListCache[country] = fetch('/api/banks?country=' + country, { cache: 'no-store' })
+        bankListCache[country] = getAccessToken()
+            .then(token => fetch('/api/banks?country=' + country, {
+                cache: 'no-store',
+                headers: token ? { authorization: 'Bearer ' + token } : {}
+            }))
             .then(reply => reply.json())
             .then(data => {
                 if (!data.ok) throw new Error(data.error || 'Could not load banks');
@@ -149,7 +158,8 @@ function renderBankChoices() {
         '<button class="setup-item" onclick="startBankConnect(' + bankChoices.indexOf(bank) + ')">' +
             connectableBankIcon(bank, 32) +
             '<span class="setup-item-name">' + escapeHTML(bank.name) + '<small>Read-only' +
-                (bank.maxConsentDays ? ' · renew every ' + bank.maxConsentDays + ' days' : '') + '</small></span>' +
+                (bank.maxConsentDays ? ' · renew every ' + bank.maxConsentDays + ' days' : '') +
+                (bank.note ? ' · ' + escapeHTML(bank.note) : '') + '</small></span>' +
             '<span class="setup-add">Connect</span>' +
         '</button>').join('');
 }
@@ -186,7 +196,7 @@ async function connectToBank(bank) {
     if (!bank) return;
     showToast('Opening ' + bank.name + '…');
     try {
-        const data = await callServer('/api/bank-connect', { method: 'POST', body: { provider: bank.provider, name: bank.name, country: bank.country } });
+        const data = await callServer('/api/bank-connect', { method: 'POST', body: { provider: bank.provider, name: bank.name, country: bank.country, bankId: bank.bankId } });
         // Leaving for a bank counts as finishing setup, so it doesn't start over on your return.
         if (isSetupOpen()) { SAVED.setupDone = true; saveData(); }
         // You may come back in another browser, which loads your data from your account.

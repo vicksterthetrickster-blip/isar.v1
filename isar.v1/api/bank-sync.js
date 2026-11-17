@@ -41,7 +41,7 @@ export default async function handler(request, response) {
                 entry.error = 'consent_expired';       // the person needs to approve the bank again
             } else {
                 try {
-                    Object.assign(entry, await provider.getBalance({ account, request }));
+                    Object.assign(entry, await provider.getBalance({ account, request, user }));
                 } catch (error) {
                     entry.error = error.message;
                 }
