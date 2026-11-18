@@ -316,7 +316,11 @@ function toIsarTransaction(tx, index) {
         date: date,
         description: description.trim().slice(0, 140),
         category: tx.pending ? 'Pending' : (textOf(tx.category) || textOf(tx.providerCategory)).slice(0, 60),
-        amount: amount
+        amount: amount,
+        // Which currency `amount` is in. On a multi-currency card (CommBank Travel Money) one
+        // account's transactions come in several currencies, and this is how the app tells them
+        // apart and works out each currency's balance (js/bankconnect.js). Missing = unknown.
+        currency: /^[A-Za-z]{3}$/.test(String(tx.currency || '')) ? String(tx.currency).toUpperCase() : undefined
     };
 }
 
@@ -342,7 +346,9 @@ export async function getTransactions({ account, from, user }) {
         const list = Array.isArray(data) ? data : asList(data && (data.transactions || data.items));
         list.forEach(tx => {
             const txCurrency = tx.currency ? String(tx.currency).toUpperCase() : null;
-            if (txCurrency && only && txCurrency !== only) return;
+            // A transaction with no currency belongs to the card's main balance only, so it's never
+            // counted in two currencies at once.
+            if (only && txCurrency !== only) return;
             if (txCurrency && others.includes(txCurrency)) return;
             const converted = toIsarTransaction(tx, transactions.length);
             if (converted) transactions.push(converted);

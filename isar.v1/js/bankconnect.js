@@ -280,8 +280,12 @@ function isoDaysAgo(days) {
     return localISODate(day);
 }
 
+// Raised when the server starts sending something new with each transaction, so transactions
+// saved before then are read again in full once. 2 = each transaction's own currency (18 Nov).
+const BANK_TX_VERSION = 2;
+
 async function syncBankTransactions(account) {
-    const first = !Array.isArray(account.transactions);
+    const first = !Array.isArray(account.transactions) || account.txVersion !== BANK_TX_VERSION;
     if (!first && account.txFetchedAt && Date.now() - account.txFetchedAt < BANK_TX_REFRESH_MS) return false;
     const key = account.provider + ':' + account.bankAccountId;
     if (bankTxFailedAt[key] && Date.now() - bankTxFailedAt[key] < BANK_TX_RETRY_MS) return false;
@@ -296,7 +300,8 @@ async function syncBankTransactions(account) {
             const kept = (account.transactions || []).filter(t => t.date < from);
             account.transactions = kept.concat(data.transactions);
             account.txFetchedAt = Date.now();
-            if (first) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);
+            account.txVersion = BANK_TX_VERSION;
+            if (!account.txCoveredFrom) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);
             delete account.txError;
             delete bankTxFailedAt[key];
             return true;
@@ -332,19 +337,14 @@ function rebuildHistoryFromTransactions(account) {
     const anchor = seen[0];
     if (!account.txCoveredFrom) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);   // read before this was saved
 
-    const pendingInBalance = BALANCE_TYPES_WITH_PENDING.includes(String(account.balanceType || '').toUpperCase());
     const movedOn = {};                                  // date -> that day's total in and out
-    account.transactions.forEach(t => {
-        if (!t || typeof t.amount !== 'number' || !isFinite(t.amount) || typeof t.date !== 'string' || t.date > anchor.date) return;
-        if (t.category === 'Pending' && !pendingInBalance) return;
+    countedTransactions(account).forEach(t => {
+        // On a multi-currency card, only the transactions in this balance's own currency.
+        if (t.date > anchor.date || (account.cardCurrencies && transactionCurrency(t, account) !== account.currency)) return;
         movedOn[t.date] = (movedOn[t.date] || 0) + t.amount;
     });
     const days = Object.keys(movedOn).sort();
-
-    // The bank's data surely reaches back to the day before its oldest transaction, or to the
-    // stretch every bank gives, whichever is earlier. Before that, Isar doesn't know.
-    const dayBeforeOldest = days.length ? shiftISODate(days[0], -1) : null;
-    const start = dayBeforeOldest && dayBeforeOldest < account.txCoveredFrom ? dayBeforeOldest : account.txCoveredFrom;
+    const start = transactionDataStart(account);
 
     const worked = [];
     let balance = anchor.balance;
@@ -358,6 +358,180 @@ function rebuildHistoryFromTransactions(account) {
     if (JSON.stringify(history) === JSON.stringify(account.history)) return false;
     account.history = history;
     return true;
+}
+
+// The transactions that move the balance: real amounts with a date, leaving out pending ones
+// when the bank's balance doesn't include them yet.
+function countedTransactions(account) {
+    const pendingInBalance = BALANCE_TYPES_WITH_PENDING.includes(String(account.balanceType || '').toUpperCase());
+    return (account.transactions || []).filter(t => t && typeof t.amount === 'number' && isFinite(t.amount) &&
+        typeof t.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && (pendingInBalance || t.category !== 'Pending'));
+}
+
+// A transaction's currency. One the bank didn't label belongs to the account's main balance.
+function transactionCurrency(t, account) {
+    return t.currency || account.currency;
+}
+
+// How far back the bank's data surely reaches: the day before the oldest transaction, or the
+// stretch every bank gives, whichever is earlier. Before that, Isar doesn't know.
+function transactionDataStart(account) {
+    if (!account.txCoveredFrom) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);   // read before this was saved
+    const oldest = (account.transactions || []).reduce((min, t) => t && typeof t.date === 'string' && t.date < min ? t.date : min, '9999');
+    const dayBeforeOldest = oldest === '9999' ? null : shiftISODate(oldest, -1);
+    return dayBeforeOldest && dayBeforeOldest < account.txCoveredFrom ? dayBeforeOldest : account.txCoveredFrom;
+}
+
+// --- Multi-currency cards (e.g. CommBank Travel Money) ---
+// BankSync gives a multi-currency card ONE balance with no currency (so it reads as AUD) and
+// drops the others. But every transaction says its own currency. So when one account's
+// transactions come in two or more currencies, Isar treats it as a card and shows one account
+// per currency:
+//   - The MAIN currency is the one the bank's single balance is in. That balance stays exactly
+//     as the bank gives it; only its label is corrected.
+//   - Every OTHER currency's balance is added up from its transactions: top-ups in, spending out,
+//     and a conversion counts as money out of one currency and into the other:
+//         balance = every transaction in that currency, starting from 0
+//     Starting from 0 is right when the bank's data reaches back to when that currency was first
+//     loaded. If it doesn't, the total can come out below zero, which a prepaid card can't be,
+//     so that's reported as a problem instead of shown silently.
+// Each extra currency is its own account (`purseOf` = the card's account), so net worth, the
+// graphs, the Globe and the bank screen all include it. Transactions are saved once, on the card.
+function splitMultiCurrencyCard(account, problems) {
+    if (!Array.isArray(account.transactions) || account.purseCurrency) return false;   // the bank already splits it
+    const sums = {};                                     // currency -> total of its transactions
+    const unsupported = new Set();
+    countedTransactions(account).forEach(t => {
+        if (!t.currency) return;                         // no label: part of the main balance
+        if (!CURRENCY_META[t.currency]) { unsupported.add(t.currency); return; }
+        sums[t.currency] = (sums[t.currency] || 0) + t.amount;
+    });
+    unsupported.forEach(c => problems.push(account.name + ': has transactions in ' + c + ', which Isar doesn\'t support yet, so they aren\'t counted.'));
+    const currencies = Object.keys(sums).sort();
+    const reported = account.reportedCurrency || account.currency;
+    let changed = false;
+    const set = (key, value) => {
+        if (JSON.stringify(account[key]) === JSON.stringify(value)) return;
+        if (value === undefined) delete account[key]; else account[key] = value;
+        changed = true;
+    };
+
+    // Which currency the bank's single balance is in: one you set yourself; else the bank's own
+    // label when it's a real one (not the AUD it says when it says nothing); else the currency
+    // whose transactions alone best explain that balance (the one needing the smallest starting
+    // amount, ideally 0).
+    let main = account.currencyFixed;
+    if (!main && reported && reported !== 'AUD' && (sums[reported] !== undefined || !currencies.length)) main = reported;
+    // Once chosen, it stays (unless it disappears), so the accounts don't swap round between syncs.
+    if (!main && account.mainCurrency && sums[account.mainCurrency] !== undefined) main = account.mainCurrency;
+    if (!main && currencies.length) {
+        main = currencies.slice().sort((a, b) => Math.abs(account.balance - sums[a]) - Math.abs(account.balance - sums[b]))[0];
+    }
+    if (!main) main = reported;
+
+    if (currencies.length < 2) {
+        // An ordinary account. If all its transactions are in one currency that isn't the label
+        // (e.g. a CNY balance the bank called AUD), the label is corrected.
+        set('mainCurrency', currencies.length === 1 && currencies[0] !== reported && !account.currencyFixed ? currencies[0] : undefined);
+        if (account.cardName && account.parentName === account.cardName) set('parentName', undefined);
+        set('cardCurrencies', undefined);
+        set('cardName', undefined);
+        if (!account.currencyFixed) {
+            const label = account.mainCurrency || reported;
+            if (label && account.currency !== label) { account.currency = label; changed = true; }
+        }
+        return changed;
+    }
+
+    const cardName = account.cardName || account.name;
+    set('cardName', cardName);
+    set('parentName', cardName);
+    set('cardCurrencies', currencies);
+    set('mainCurrency', account.currencyFixed ? undefined : main);
+    if (account.currency !== main) { account.currency = main; changed = true; }
+
+    const start = transactionDataStart(account);
+    const today = localISODate(new Date());
+    currencies.filter(c => c !== main).forEach(currency => {
+        const id = account.id + ':' + currency;
+        let purse = ACCOUNTS.find(a => a.id === id);
+        if (!purse) {
+            purse = {
+                id: id,
+                purseOf: account.id,                     // the card it's one currency of
+                provider: account.provider,
+                connectionId: account.connectionId,
+                bankCountry: account.bankCountry,
+                bankName: account.bankName,
+                name: cardName + ' · ' + currency,
+                type: 'Worked out from transactions',
+                letter: account.letter,
+                color: account.color,
+                logoUrl: account.logoUrl,
+                currency: currency,
+                addedDate: account.addedDate,
+                historySource: 'bank',
+                userLinked: true
+            };
+            ACCOUNTS.push(purse);
+            changed = true;
+        }
+        Object.assign(purse, { parentName: cardName, connectionId: account.connectionId, logoUrl: account.logoUrl });
+        const history = purseHistory(account, currency, start, today, purse.opening || 0);
+        const balance = history[history.length - 1].balance;
+        if (purse.balance !== balance || JSON.stringify(purse.history) !== JSON.stringify(history)) {
+            purse.balance = balance;
+            purse.history = history;
+            changed = true;
+        }
+        if (balance < 0) {
+            problems.push(purse.name + ': worked out from transactions since ' + formatGraphDate(Date.parse(start + 'T00:00:00Z'), true) +
+                ', it comes to below zero, so the bank\'s data doesn\'t reach back to when this currency was loaded. ' +
+                'Open it and use Update balance once with what the CommBank app shows; Isar keeps adding up from there.');
+        }
+    });
+    // A currency the card no longer has.
+    for (let i = ACCOUNTS.length - 1; i >= 0; i--) {
+        const a = ACCOUNTS[i];
+        if (a.purseOf === account.id && (a.currency === main || !currencies.includes(a.currency))) {
+            ACCOUNTS.splice(i, 1);
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+// One currency of a card, day by day: `opening` where the data starts (0, unless you corrected
+// it once with Update balance), then each day's transactions added on. Rebuilt in full every
+// sync, so it always matches the transactions.
+function purseHistory(card, currency, start, today, opening) {
+    const movedOn = {};
+    countedTransactions(card).forEach(t => {
+        if (t.currency === currency && t.date <= today) movedOn[t.date] = (movedOn[t.date] || 0) + t.amount;
+    });
+    const days = Object.keys(movedOn).sort();
+    const history = [];
+    let balance = opening;
+    if (!days.length || start < days[0]) history.push({ date: start, balance: Math.round(opening * 100) / 100 });
+    days.forEach(day => {
+        balance += movedOn[day];
+        history.push({ date: day, balance: Math.round(balance * 100) / 100 });
+    });
+    if (history[history.length - 1].date < today) history.push({ date: today, balance: history[history.length - 1].balance });
+    return history;
+}
+
+// A card's extra currency goes when its card does (removed, or no longer at the bank).
+function removeOrphanCurrencies() {
+    let removed = false;
+    for (let i = ACCOUNTS.length - 1; i >= 0; i--) {
+        const a = ACCOUNTS[i];
+        if (!a.purseOf || ACCOUNTS.some(card => card.id === a.purseOf)) continue;
+        ACCOUNTS.splice(i, 1);
+        if (openAccountId === a.id) closeAccount();
+        removed = true;
+    }
+    return removed;
 }
 
 function shiftISODate(iso, days) {
@@ -414,8 +588,10 @@ async function syncConnectedBanks() {
 
         for (const account of ACCOUNTS.filter(a => a.bankAccountId)) {
             if (await syncBankTransactions(account)) changed = true;
+            if (splitMultiCurrencyCard(account, problems)) changed = true;
             if (rebuildHistoryFromTransactions(account)) changed = true;
         }
+        if (removeOrphanCurrencies()) changed = true;
 
         if (changed) { saveLinkedAccounts(); refreshAfterAccountChange(); refreshAccountTransactions(); }
         if (needsReconnect) showToast('A bank needs approving again. Reconnect it in the Add tab (Australian banks: in the BankSync app).');
@@ -434,15 +610,21 @@ function applyIncomingAccount(incoming) {
         return bankAccountLabel(incoming) + ': the bank didn\'t send a balance.';
     }
     const existing = ACCOUNTS.find(a => a.provider === incoming.provider && a.bankAccountId === incoming.uid);
-    // A currency you set yourself (Edit on the account screen) always wins over the bank's label.
-    const currency = (existing && existing.currencyFixed) || String(incoming.currency || '').toUpperCase();
+    // Which currency the balance is in, most trusted first: one you set yourself (Edit on the
+    // account screen), then the one Isar worked out from the account's own transactions
+    // (splitMultiCurrencyCard), then the bank's label, which says AUD whenever it says nothing.
+    const reported = String(incoming.currency || '').toUpperCase();
+    const currency = (existing && (existing.currencyFixed || existing.mainCurrency)) || reported;
     if (!CURRENCY_META[currency]) {
         return bankAccountLabel(incoming) + ': Isar doesn\'t support the currency "' + (incoming.currency || 'none') + '" yet.';
     }
 
     if (existing) {
         let changed = false;
-        if ((incoming.parent || undefined) !== existing.parentName) { existing.parentName = incoming.parent || undefined; changed = true; }
+        // The card it's one currency of: from the bank, or from Isar finding several currencies in it.
+        const parentName = incoming.parent || existing.cardName || undefined;
+        if (parentName !== existing.parentName) { existing.parentName = parentName; changed = true; }
+        if (existing.reportedCurrency !== reported) { existing.reportedCurrency = reported; changed = true; }
         if (existing.logoUrl !== incoming.logo) { existing.logoUrl = incoming.logo; changed = true; }
         // Which bank login it belongs to, so the home list shows one row per bank (accounts.js).
         if (incoming.connectionId && existing.connectionId !== incoming.connectionId) { existing.connectionId = incoming.connectionId; changed = true; }
@@ -479,6 +661,7 @@ function applyIncomingAccount(incoming) {
         logoUrl: incoming.logo,
         balance: incoming.balance,
         currency: currency,
+        reportedCurrency: reported,
         balanceType: incoming.balanceType,
         addedDate: today,
         history: [{ date: today, time: currentTimeHHMM(), balance: incoming.balance }],

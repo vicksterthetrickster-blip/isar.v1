@@ -19,10 +19,19 @@ const TX_PAGE_SIZE = 15;                // rows shown before "Show more"
 const TX_FILTERS = [['all', 'All'], ['in', 'Money in'], ['out', 'Money out']];
 
 function getAccountTransactions(account) {
-    const list = Array.isArray(account.transactions) ? account.transactions
-        : usesMockTransactions(account) ? generateMockTransactions(account)
-        : balanceUpdateEntries(account);
+    const list = bankTransactionsOf(account)
+        || (usesMockTransactions(account) ? generateMockTransactions(account) : balanceUpdateEntries(account));
     return list.slice().sort((a, b) => (b.date + (b.time || '')).localeCompare(a.date + (a.time || '')));   // newest first
+}
+
+// Real transactions from a bank, or null if the account has none. A multi-currency card's
+// transactions are saved once, on the card's account (bankconnect.js), and each of its
+// currencies shows only its own. One the bank didn't label belongs to the card's main currency.
+function bankTransactionsOf(account) {
+    const card = account.purseOf ? ACCOUNTS.find(a => a.id === account.purseOf) : account;
+    if (!card || !Array.isArray(card.transactions)) return null;
+    if (!card.cardCurrencies) return card.transactions;
+    return card.transactions.filter(t => (t.currency || card.currency) === account.currency);
 }
 
 function currentTimeHHMM() {
@@ -306,7 +315,9 @@ function renderAccountTransactions(account) {
     }).join('') || '<div class="tx-empty">Nothing here yet</div>';
 
     document.getElementById('acct-tx-more').hidden = shown.length <= acctTxLimit;
-    const source = account.bankAccountId ?(account.txError ? 'Couldn\'t get transactions from your bank (' + account.txError + '). Isar will try again in 30 minutes.'
+    const source = account.purseOf ? 'From your bank, read-only. The bank only sends this card\'s balance for one currency, so this ' +
+            account.currency + ' balance is added up from its ' + account.currency + ' transactions (top-ups in, spending out).'
+        : account.bankAccountId ? (account.txError ? 'Couldn\'t get transactions from your bank (' + account.txError + '). Isar will try again in 30 minutes.'
             : Array.isArray(account.transactions) ? 'From your bank, read-only. Refreshed every few hours.' : 'Fetching transactions from your bank…')
         : Array.isArray(account.transactions) || updatesOnly ? ''
         : usesMockTransactions(account) ? 'Sample transactions for the demo.'

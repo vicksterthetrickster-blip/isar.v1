@@ -181,7 +181,10 @@ function saveLinkedAccounts() {
         connectionId: a.connectionId, bankCountry: a.bankCountry,                   // which bank login; groups a bank's accounts (accounts.js)
         parentName: a.parentName, currencyFixed: a.currencyFixed,                   // card it belongs to; a currency you set yourself
         transactions: a.transactions, txFetchedAt: a.txFetchedAt, txError: a.txError,
-        txCoveredFrom: a.txCoveredFrom, balanceType: a.balanceType                  // for past balances from transactions (bankconnect.js)
+        txCoveredFrom: a.txCoveredFrom, balanceType: a.balanceType,                 // for past balances from transactions (bankconnect.js)
+        txVersion: a.txVersion, reportedCurrency: a.reportedCurrency,
+        purseOf: a.purseOf, cardName: a.cardName, cardCurrencies: a.cardCurrencies, // multi-currency cards (bankconnect.js)
+        mainCurrency: a.mainCurrency, opening: a.opening
     }));
     saveData();
 }
@@ -213,7 +216,14 @@ function updateLinkedAccount(id, changes) {
         account.currencyFixed = changes.currencyFixed;
         account.currency = changes.currencyFixed;
     }
-    if (typeof changes.balance === 'number' && isFinite(changes.balance)) {
+    if (typeof changes.balance === 'number' && isFinite(changes.balance) && account.purseOf) {
+        // One currency of a card, added up from its transactions: a typed balance corrects its
+        // starting amount once (money loaded before the bank's data begins). From then on the
+        // transactions keep it up to date by themselves (bankconnect.js).
+        account.opening = (account.opening || 0) + (changes.balance - account.balance);
+        const card = ACCOUNTS.find(a => a.id === account.purseOf);
+        if (card) splitMultiCurrencyCard(card, []);
+    } else if (typeof changes.balance === 'number' && isFinite(changes.balance)) {
         account.balance = changes.balance;
         const today = localISODate(new Date());
         const history = account.history;
@@ -291,6 +301,7 @@ function removeLinkedAccount(id) {
         if (idx === -1) return;
         ACCOUNTS.splice(idx, 1);
         if (openAccountId === id) closeAccount();
+        removeOrphanCurrencies();       // a card's other currencies go with it (bankconnect.js)
         saveLinkedAccounts();
         refreshAfterAccountChange();
     });

@@ -57,7 +57,7 @@ function getAccountsInDisplayOrder() {
 // Which bank an account belongs to: its connection (one bank login), or for accounts saved
 // before connections were recorded, its provider + bank name. Typed-in accounts have none.
 function bankGroupKey(account) {
-    if (!account.provider || !account.bankAccountId) return null;
+    if (!account.provider || !(account.bankAccountId || account.purseOf)) return null;   // purseOf: one currency of a card
     return account.connectionId || (account.provider + ':' + account.bankName);
 }
 
