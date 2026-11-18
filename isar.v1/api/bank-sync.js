@@ -47,9 +47,10 @@ async function syncConnection(connection, request, user) {
     if (provider && provider.refreshAccounts && !expired) {
         try {
             const live = await provider.refreshAccounts({ connection, request, user });
-            if (live.length && JSON.stringify(live) !== JSON.stringify(accounts)) {
-                await updateRowAsUser(request, 'bank_connections', connection.id, { accounts: live });
-                accounts = live;
+            const merged = live.length ? mergeAccountLists(accounts, live) : accounts;
+            if (JSON.stringify(merged) !== JSON.stringify(accounts)) {
+                await updateRowAsUser(request, 'bank_connections', connection.id, { accounts: merged });
+                accounts = merged;
             }
         } catch (e) { /* keep the saved list; the balance reads below report the problem */ }
     }
@@ -58,7 +59,12 @@ async function syncConnection(connection, request, user) {
     const results = [];
     for (const account of accounts) {
         const entry = { ...base, uid: account.uid, name: account.name, parent: account.parentName || null, currency: upper(account.currency) };
-        if (!provider) {
+        if (account.missingSince) {
+            // Left out of the bank's latest list: the app keeps it (and its history) with its last
+            // balance and says so, until it's back or the grace period runs out.
+            entry.missingSince = account.missingSince;
+            entry.removeAfter = addDays(account.missingSince, MISSING_GRACE_DAYS);
+        } else if (!provider) {
             entry.error = 'unknown_provider';
         } else if (expired) {
             entry.error = 'consent_expired';       // the person needs to approve the bank again
@@ -73,6 +79,40 @@ async function syncConnection(connection, request, user) {
         results.push(entry);
     }
     return results;
+}
+
+// An account the bank leaves out of ONE answer isn't gone: aggregators sometimes send a short
+// list (a bank mid-refresh, a hiccup). Dropping it straight away deleted it in the app, with its
+// history and anything you'd set on it, and it came back next time as a brand-new account.
+// So the saved list is the live list PLUS any saved account it left out, marked `missingSince`.
+// It's only dropped when:
+//   - the same bank account is in the live list in a new shape (e.g. a card now split into one
+//     account per currency, or back again). That's a replacement, not an absence, so it's
+//     dropped at once, or its money would count twice; or
+//   - it has been missing for MISSING_GRACE_DAYS days in a row (it really was closed).
+// If it comes back in time, it's simply in the live list again, with nothing lost.
+const MISSING_GRACE_DAYS = 7;
+
+function mergeAccountLists(saved, live) {
+    const today = new Date().toISOString().slice(0, 10);
+    const liveUids = new Set(live.map(a => a.uid));
+    const liveBankAccounts = new Set(live.map(bankAccountOf));
+    const stillWaiting = saved
+        .filter(a => a && a.uid && !liveUids.has(a.uid) && !liveBankAccounts.has(bankAccountOf(a)))
+        .map(a => ({ ...a, missingSince: a.missingSince || today }))
+        .filter(a => addDays(a.missingSince, MISSING_GRACE_DAYS) > today);
+    return live.concat(stillWaiting);
+}
+
+// The bank's own account id: one currency of a card is saved as "<account id>:<CUR>".
+function bankAccountOf(account) {
+    return account.accountId || String(account.uid).split(':')[0];
+}
+
+function addDays(isoDate, days) {
+    const day = new Date(isoDate + 'T00:00:00Z');
+    day.setUTCDate(day.getUTCDate() + days);
+    return day.toISOString().slice(0, 10);
 }
 
 function upper(currency) {

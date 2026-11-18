@@ -604,6 +604,13 @@ async function syncConnectedBanks() {
 // Puts one account from the server into Isar. Returns 'changed', nothing (no change), or a
 // readable problem.
 function applyIncomingAccount(incoming) {
+    // The bank left this account out of its latest list. It stays, with its history and its last
+    // balance, and you're told; the server only stops listing it after a week (api/bank-sync.js).
+    if (incoming.missingSince) {
+        const day = iso => formatGraphDate(Date.parse(iso + 'T00:00:00Z'), true);
+        return bankAccountLabel(incoming) + ': the bank has left this account out of its updates since ' + day(incoming.missingSince) +
+            '. Isar is keeping it, with its last balance and history. If it isn\'t back by ' + day(incoming.removeAfter) + ', it will be removed.';
+    }
     if (incoming.error === 'consent_expired') return 'consent_expired';
     if (incoming.error) return bankAccountLabel(incoming) + ': ' + bankErrorText(incoming.error);
     if (typeof incoming.balance !== 'number' || !Number.isFinite(incoming.balance)) {
@@ -688,9 +695,10 @@ async function showBankRawData(connectionId) {
     }
 }
 
-// An account the bank no longer lists (e.g. the old single Travel Money account, now split
-// into one account per currency) is removed, but only when its bank answered this time, so a
-// bank that's down never makes accounts disappear.
+// An account the server no longer lists is removed, but only when its bank answered this time,
+// so a bank that's down never makes accounts disappear. The server keeps listing an account the
+// bank briefly leaves out for a week (`missingSince`, api/bank-sync.js), so by the time it
+// reaches here it's really gone, or replaced by a new shape of the same account.
 function removeAccountsNoLongerListed(incomingList) {
     const listed = new Set(incomingList.filter(i => i.uid).map(i => i.provider + ':' + i.uid));
     const answered = new Set(incomingList.filter(i => i.uid && i.connectionId).map(i => i.connectionId));
