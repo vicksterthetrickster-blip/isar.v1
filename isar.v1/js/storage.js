@@ -59,6 +59,9 @@ else if (SAVED.settings.showSampleData === undefined) USER_SETTINGS.showSampleDa
 SAVED.linkedAccounts.forEach(a => {
     if (!a || !a.id || !CURRENCY_META[a.currency] || typeof a.balance !== 'number') return;
     if (ACCOUNTS.some(x => x.id === a.id)) return;
+    // Extra currencies of a Travel Money card, worked out by maths that was removed on 18 Nov
+    // because it showed wrong balances. They aren't real bank accounts, so they're dropped.
+    if (a.purseOf) return;
     const account = Object.assign({}, a, { userLinked: true });
     // Connected before providers were recorded: those were all Enable Banking.
     if (account.ebUid) { account.provider = 'enablebanking'; account.bankAccountId = account.ebUid; delete account.ebUid; }
