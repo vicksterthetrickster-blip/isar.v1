@@ -36,8 +36,7 @@ export default async function handler(request, response) {
     try {
         const account = connection.accounts.find(a => a.uid === uid);
         const transactions = await provider.getTransactions({ connection, account, from, request, user });
-        // partial: the provider had more pages than it was allowed to read, so the list is incomplete.
-        response.status(200).json({ ok: true, from: from, transactions: transactions, partial: !!transactions.partial });
+        response.status(200).json({ ok: true, from: from, transactions: transactions });
     } catch (error) {
         const status = error.code === 'owner_only' ? 403 : (error.status === 422 || error.status === 400 ? 422 : 502);
         response.status(status).json({ ok: false, error: error.message });

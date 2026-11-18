@@ -21,7 +21,7 @@ function dateDaysAgo(days) {
 // True if an account has real or sample transactions. Value and balance updates you typed in
 // aren't money moving, so Insights ignores them.
 function hasTransactions(account) {
-    return bankTransactionsOf(account) !== null || usesMockTransactions(account);
+    return Array.isArray(account.transactions) || usesMockTransactions(account);
 }
 
 // Every foreign transaction with a hidden cost in the last `days` days, newest first, and the

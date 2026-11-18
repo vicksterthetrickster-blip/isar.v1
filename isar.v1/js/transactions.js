@@ -19,32 +19,10 @@ const TX_PAGE_SIZE = 15;                // rows shown before "Show more"
 const TX_FILTERS = [['all', 'All'], ['in', 'Money in'], ['out', 'Money out']];
 
 function getAccountTransactions(account) {
-    const list = bankTransactionsOf(account)
-        || (usesMockTransactions(account) ? generateMockTransactions(account) : balanceUpdateEntries(account));
+    const list = Array.isArray(account.transactions) ? account.transactions
+        : usesMockTransactions(account) ? generateMockTransactions(account)
+        : balanceUpdateEntries(account);
     return list.slice().sort((a, b) => (b.date + (b.time || '')).localeCompare(a.date + (a.time || '')));   // newest first
-}
-
-// Real transactions from a bank, or null if the account has none. A multi-currency card's
-// transactions are saved once, on the card's account (bankconnect.js), and each of its
-// currencies shows only its own. One the bank didn't label belongs to the card's main currency.
-function bankTransactionsOf(account) {
-    const card = account.purseOf ? ACCOUNTS.find(a => a.id === account.purseOf) : account;
-    if (!card || !Array.isArray(card.transactions)) return null;
-    // Only a card (or an account in several currencies) needs filtering. On a card, AUD top-ups
-    // that aren't a balance of their own aren't listed under any currency (see the note below
-    // the list), because their amounts aren't in that currency.
-    if (!card.cardCurrencies && !card.mixedCurrencies) return card.transactions;
-    return card.transactions.filter(t => (t.currency || card.currency) === account.currency);
-}
-
-// "4 top-ups in AUD (A$3,000) aren't listed under a currency": shown on a card's main account.
-function cardLoadsNote(account) {
-    if (account.purseOf || !account.cardCurrencies || account.currency === 'AUD' || !Array.isArray(account.transactions)) return '';
-    const loads = account.transactions.filter(t => t.currency === 'AUD' && !isPendingTransaction(t));
-    if (!loads.length) return '';
-    const total = loads.reduce((sum, t) => sum + t.amount, 0);
-    return loads.length + ' AUD transaction' + (loads.length === 1 ? '' : 's') + ' (top-ups, ' + formatAmount(total, 'AUD') + ' in total) ' +
-        'aren\'t listed under a currency: they\'re money loaded onto the card, not a balance of their own. ';
 }
 
 function currentTimeHHMM() {
@@ -328,13 +306,7 @@ function renderAccountTransactions(account) {
     }).join('') || '<div class="tx-empty">Nothing here yet</div>';
 
     document.getElementById('acct-tx-more').hidden = shown.length <= acctTxLimit;
-    const source = account.purseOf && account.unverified ? 'The bank only sends this card\'s balance for one currency, and this ' + account.currency +
-            ' balance can\'t be worked out reliably from its transactions: ' + account.unverified + '. Use Update balance once with what the CommBank app shows, and Isar keeps it up to date from there.'
-        : account.purseOf ? 'From your bank, read-only. The bank only sends this card\'s balance for one currency, so this ' +
-            account.currency + ' balance is added up from its ' + account.currency + ' transactions (top-ups in, spending out), and checked against what was loaded.'
-        : account.mixedCurrencies && !account.cardCurrencies ? 'This account has transactions in ' + account.mixedCurrencies.join(', ') +
-            '. Only those in ' + account.currency + ' are listed until you pick its currency in Edit.'
-        : account.bankAccountId ? cardLoadsNote(account) + (account.txError ? 'Couldn\'t get transactions from your bank (' + account.txError + '). Isar will try again in 30 minutes.'
+    const source = account.bankAccountId ?(account.txError ? 'Couldn\'t get transactions from your bank (' + account.txError + '). Isar will try again in 30 minutes.'
             : Array.isArray(account.transactions) ? 'From your bank, read-only. Refreshed every few hours.' : 'Fetching transactions from your bank…')
         : Array.isArray(account.transactions) || updatesOnly ? ''
         : usesMockTransactions(account) ? 'Sample transactions for the demo.'

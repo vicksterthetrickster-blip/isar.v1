@@ -31,18 +31,6 @@ export default async function handler(request, response) {
 
     try {
         const accounts = await provider.rawAccounts({ connection, request, user });
-        // Plus a sample of each account's raw transactions, so a balance worked out from them
-        // can be checked against exactly what arrived. One at a time and at most 6 accounts,
-        // to stay inside BankSync's 10 requests a minute.
-        if (provider.rawTransactions) {
-            for (const account of accounts.slice(0, 6)) {
-                try {
-                    account.isarRawTransactions = await provider.rawTransactions({ connection, accountId: account.id, request, user });
-                } catch (error) {
-                    account.isarRawTransactions = { error: error.message };
-                }
-            }
-        }
         response.status(200).json({ ok: true, bank: connection.bank_name, accounts: accounts });
     } catch (error) {
         response.status(error.code === 'owner_only' ? 403 : 502).json({ ok: false, error: error.message });

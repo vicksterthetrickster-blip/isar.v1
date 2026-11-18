@@ -24,7 +24,7 @@ import { timingSafeEqual } from 'crypto';
 
 const BS_BASE = 'https://api.banksync.io/v1';
 const REQUEST_TIMEOUT_MS = 15000;
-const MAX_PAGES = 8;                       // BankSync allows 10 requests a minute on Standard; more is flagged `partial`
+const MAX_PAGES = 5;                       // BankSync allows 10 requests a minute on Standard
 const CACHE_MS = 5 * 60 * 1000;            // BankSync refreshes daily; no need to ask more often
 
 export const name = 'banksync';
@@ -306,42 +306,18 @@ function textOf(value) {
     return '';
 }
 
-// The amount, signed the way Isar needs it (positive = money in). BankSync's spec doesn't say
-// how it signs `amount`, but it always sends `creditAmount` and `debitAmount`, which can't be
-// misread: money in minus money out. `amount` is only the fallback. If the two disagree on the
-// direction, the transaction is marked `signConflict`, and nothing is worked out from it.
-function signedAmountOf(tx) {
-    const credit = Number(tx.creditAmount), debit = Number(tx.debitAmount);
-    const plain = Number(tx.amount);
-    const fromParts = Number.isFinite(credit) && Number.isFinite(debit) && (credit !== 0 || debit !== 0) ? credit - debit : null;
-    const amount = fromParts !== null ? fromParts : plain;
-    const conflict = fromParts !== null && Number.isFinite(plain) && plain !== 0 && Math.sign(plain) !== Math.sign(fromParts);
-    return { amount: amount, conflict: conflict };
-}
-
 function toIsarTransaction(tx, index) {
-    const { amount, conflict } = signedAmountOf(tx);
+    const amount = Number(tx.amount);                  // BankSync signs it: positive = money in, like Isar
     const date = isoDate(tx.date) || isoDate(tx.authorizedDate);
     if (!Number.isFinite(amount) || !date) return null;
     const description = String(tx.merchantName || tx.description || tx.originalDescription || (amount >= 0 ? 'Money in' : 'Money out'));
-    const result = {
+    return {
         id: 'bs-' + (tx.id || [date, amount, index].join('-')),
         date: date,
         description: description.trim().slice(0, 140),
         category: tx.pending ? 'Pending' : (textOf(tx.category) || textOf(tx.providerCategory)).slice(0, 60),
-        amount: Math.round(amount * 100) / 100,
-        // Which currency `amount` is in. On a multi-currency card (CommBank Travel Money) one
-        // account's transactions come in several currencies, and this is how the app tells them
-        // apart. BankSync always fills it in, writing "AUD" when the bank left it out, so on a
-        // card "AUD" can't be fully trusted (js/bankconnect.js deals with that).
-        currency: /^[A-Za-z]{3}$/.test(String(tx.currency || '')) ? String(tx.currency).toUpperCase() : undefined
+        amount: amount
     };
-    // A pending payment, and the posted payment that replaces it, are two different transactions.
-    // These let the app keep only one of them (js/bankconnect.js).
-    if (tx.pending) result.pending = true;
-    if (tx.pendingTransactionId) result.replacesPending = 'bs-' + tx.pendingTransactionId;
-    if (conflict) result.signConflict = true;
-    return result;
 }
 
 // BankSync's spec: `meta.cursor` carries on to the next page while `meta.hasMore` is true.
@@ -366,9 +342,7 @@ export async function getTransactions({ account, from, user }) {
         const list = Array.isArray(data) ? data : asList(data && (data.transactions || data.items));
         list.forEach(tx => {
             const txCurrency = tx.currency ? String(tx.currency).toUpperCase() : null;
-            // A transaction with no currency belongs to the card's main balance only, so it's never
-            // counted in two currencies at once.
-            if (only && txCurrency !== only) return;
+            if (txCurrency && only && txCurrency !== only) return;
             if (txCurrency && others.includes(txCurrency)) return;
             const converted = toIsarTransaction(tx, transactions.length);
             if (converted) transactions.push(converted);
@@ -376,35 +350,7 @@ export async function getTransactions({ account, from, user }) {
         cursor = nextCursorOf(body);
         if (!cursor) break;
     }
-    // Stopped at the page limit with more still to come: the list is incomplete, so the app
-    // mustn't add anything up from it (bank-transactions.js passes this on as `partial`).
-    if (cursor) transactions.partial = true;
     return transactions;
-}
-
-// A sample of the account's raw transactions, for the "What BankSync sends" screen: the last
-// 90 days, one page, only the fields that decide the maths. Nothing is converted or filtered.
-const RAW_TX_FIELDS = ['id', 'date', 'authorizedDate', 'description', 'merchantName', 'type', 'category', 'amount',
-    'creditAmount', 'debitAmount', 'currency', 'pending', 'pendingTransactionId'];
-
-export async function rawTransactions({ connection, accountId, user }) {
-    const from = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
-    const to = new Date().toISOString().slice(0, 10);
-    const body = await bsRequest('/banks/' + encodeURIComponent(connection.session_id) + '/accounts/' + encodeURIComponent(accountId) +
-        '/transactions?from=' + from + '&to=' + to, user);
-    const data = dataOf(body);
-    const list = Array.isArray(data) ? data : asList(data && (data.transactions || data.items));
-    const known = new Set(RAW_TX_FIELDS);
-    return {
-        meta: body && body.meta ? { count: body.meta.count, hasMore: body.meta.hasMore, partial: body.meta.partial } : null,
-        transactions: list.slice(0, 60).map(tx => {
-            const row = {};
-            RAW_TX_FIELDS.forEach(f => { if (tx[f] !== undefined) row[f] = tx[f]; });
-            const others = Object.keys(tx).filter(k => !known.has(k));
-            if (others.length) row.otherFields = others;      // names only, in case the answer hides there
-            return row;
-        })
-    };
 }
 
 export function logoFor(connection) {
