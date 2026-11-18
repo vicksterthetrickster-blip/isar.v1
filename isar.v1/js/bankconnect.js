@@ -282,7 +282,23 @@ function isoDaysAgo(days) {
 
 // Raised when the server starts sending something new with each transaction, so transactions
 // saved before then are read again in full once. 2 = each transaction's own currency (18 Nov).
-const BANK_TX_VERSION = 2;
+// 3 = amounts signed from credit/debit, pending links, `partial` (18 Nov, Travel Money fix).
+const BANK_TX_VERSION = 3;
+
+function isPendingTransaction(t) {
+    return !!(t && (t.pending || t.category === 'Pending'));
+}
+
+// One copy of each transaction: the newest copy of an id wins, and a pending payment goes once
+// the posted payment that replaces it has arrived (it names it in `replacesPending`). Without
+// this, a payment could be counted twice: once pending, once posted.
+function dedupeTransactions(list) {
+    const byId = new Map();
+    list.forEach(t => { if (t && t.id) byId.set(t.id, t); });
+    const replaced = new Set();
+    byId.forEach(t => { if (t.replacesPending) replaced.add(t.replacesPending); });
+    return Array.from(byId.values()).filter(t => !(isPendingTransaction(t) && replaced.has(t.id)));
+}
 
 async function syncBankTransactions(account) {
     const first = !Array.isArray(account.transactions) || account.txVersion !== BANK_TX_VERSION;
@@ -297,8 +313,13 @@ async function syncBankTransactions(account) {
             const data = await callServer('/api/bank-transactions?provider=' + encodeURIComponent(account.provider) +
                 '&uid=' + encodeURIComponent(account.bankAccountId) + '&from=' + from);
             if (!data.transactions.length && i < tries.length - 1) continue;   // some banks answer a too-long range with nothing
-            const kept = (account.transactions || []).filter(t => t.date < from);
-            account.transactions = kept.concat(data.transactions);
+            // Older transactions stay, except pending ones: by now they've either gone through
+            // (and arrived again as posted) or been cancelled, so keeping them would double count.
+            const kept = (account.transactions || []).filter(t => t.date < from && !isPendingTransaction(t));
+            account.transactions = dedupeTransactions(kept.concat(data.transactions));
+            // The bank had more than the server was allowed to read: nothing is added up from it.
+            account.txPartial = !!data.partial || (!first && !!account.txPartial);
+            if (!account.txPartial) delete account.txPartial;
             account.txFetchedAt = Date.now();
             account.txVersion = BANK_TX_VERSION;
             if (!account.txCoveredFrom) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);
@@ -338,7 +359,10 @@ function rebuildHistoryFromTransactions(account) {
     if (!account.txCoveredFrom) account.txCoveredFrom = isoDaysAgo(BANK_TX_SURE_DAYS);   // read before this was saved
 
     const movedOn = {};                                  // date -> that day's total in and out
-    countedTransactions(account).forEach(t => {
+    // Transactions in several currencies, but Isar can't tell which one the balance is in: no
+    // past balances at all, rather than ones mixing currencies (splitMultiCurrencyCard).
+    const unsure = account.mixedCurrencies && !account.cardCurrencies;
+    if (!unsure) countedTransactions(account).forEach(t => {
         // On a multi-currency card, only the transactions in this balance's own currency.
         if (t.date > anchor.date || (account.cardCurrencies && transactionCurrency(t, account) !== account.currency)) return;
         movedOn[t.date] = (movedOn[t.date] || 0) + t.amount;
@@ -352,7 +376,7 @@ function rebuildHistoryFromTransactions(account) {
         if (days[i] < anchor.date) worked.push({ date: days[i], balance: Math.round(balance * 100) / 100, fromTransactions: true });
         balance -= movedOn[days[i]];                      // undo that day: now it's the day before's closing balance
     }
-    if (start < anchor.date) worked.push({ date: start, balance: Math.round(balance * 100) / 100, fromTransactions: true });
+    if (start < anchor.date && !unsure) worked.push({ date: start, balance: Math.round(balance * 100) / 100, fromTransactions: true });
 
     const history = worked.reverse().concat(seen);
     if (JSON.stringify(history) === JSON.stringify(account.history)) return false;
@@ -365,7 +389,7 @@ function rebuildHistoryFromTransactions(account) {
 function countedTransactions(account) {
     const pendingInBalance = BALANCE_TYPES_WITH_PENDING.includes(String(account.balanceType || '').toUpperCase());
     return (account.transactions || []).filter(t => t && typeof t.amount === 'number' && isFinite(t.amount) &&
-        typeof t.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && (pendingInBalance || t.category !== 'Pending'));
+        typeof t.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && (pendingInBalance || !isPendingTransaction(t)));
 }
 
 // A transaction's currency. One the bank didn't label belongs to the account's main balance.
@@ -383,31 +407,62 @@ function transactionDataStart(account) {
 }
 
 // --- Multi-currency cards (e.g. CommBank Travel Money) ---
-// BankSync gives a multi-currency card ONE balance with no currency (so it reads as AUD) and
-// drops the others. But every transaction says its own currency. So when one account's
-// transactions come in two or more currencies, Isar treats it as a card and shows one account
-// per currency:
-//   - The MAIN currency is the one the bank's single balance is in. That balance stays exactly
-//     as the bank gives it; only its label is corrected.
-//   - Every OTHER currency's balance is added up from its transactions: top-ups in, spending out,
-//     and a conversion counts as money out of one currency and into the other:
-//         balance = every transaction in that currency, starting from 0
-//     Starting from 0 is right when the bank's data reaches back to when that currency was first
-//     loaded. If it doesn't, the total can come out below zero, which a prepaid card can't be,
-//     so that's reported as a problem instead of shown silently.
-// Each extra currency is its own account (`purseOf` = the card's account), so net worth, the
-// graphs, the Globe and the bank screen all include it. Transactions are saved once, on the card.
+// BankSync gives a multi-currency card ONE balance and drops the others, but every transaction
+// says its own currency. THE RULE: only the bank's own balance is certain. Anything Isar works
+// out from transactions is shown only when it passes every check below; otherwise it shows as
+// "Unknown" with the reason, and counts as nothing in net worth. A wrong number is worse than
+// no number. (The first version trusted the sums blindly and showed a $10,000 AUD balance made
+// of every top-up ever loaded onto the card.)
+//
+// 1. MAIN currency = the one the bank's single balance is in. Your Currency pick (Edit) wins.
+//    Otherwise each currency is tested: if the balance were in it, the money before the data
+//    starts would be (balance − that currency's transactions), and replaying the transactions
+//    from there must never go below zero (a prepaid card can't). If exactly one passes, or
+//    exactly one of those that pass explains the balance with its own transactions alone,
+//    that's it. Otherwise Isar doesn't guess: the card stays one balance and you're asked to
+//    pick its currency.
+// 2. AUD on a foreign-currency card is FUNDING, not a currency balance. Top-ups arrive as AUD
+//    (BankSync also writes "AUD" whenever the bank left the currency out), and the conversion
+//    into CNY/EUR usually isn't sent as AUD going out. Adding AUD up gives every top-up ever
+//    made, which is what produced the $10,000. So AUD never becomes a worked-out balance.
+// 3. Every other currency: balance = its starting amount (0, or what you set once with Update
+//    balance) + its transactions. Shown only if ALL of these hold:
+//      - the bank sent the whole transaction list (not cut short);
+//      - no transaction disagrees with itself on whether money went in or out;
+//      - the running balance never goes below zero;
+//      - its first transaction is money in (so the data reaches back to when it was loaded),
+//        or you've set its starting amount;
+//      - all worked-out currencies together aren't more than was loaded onto the card (AUD
+//        top-ups in the same period, plus 10% for rate differences, plus starting amounts you set).
+// Each extra currency is its own account (`purseOf` = the card), so net worth, graphs, the Globe
+// and the bank screen include it. Transactions are saved once, on the card.
+const CARD_TOLERANCE = 0.01;                     // a cent, for rounding
+
+// Replays one currency's transactions, oldest first, from `opening`. Returns the lowest point.
+function lowestRunningBalance(transactions, opening) {
+    let running = opening, lowest = opening;
+    transactions.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
+        running += t.amount;
+        if (running < lowest) lowest = running;
+    });
+    return lowest;
+}
+
+function sumOf(transactions) {
+    return transactions.reduce((sum, t) => sum + t.amount, 0);
+}
+
 function splitMultiCurrencyCard(account, problems) {
     if (!Array.isArray(account.transactions) || account.purseCurrency) return false;   // the bank already splits it
-    const sums = {};                                     // currency -> total of its transactions
+    const byCurrency = {};                               // currency -> its transactions
     const unsupported = new Set();
     countedTransactions(account).forEach(t => {
         if (!t.currency) return;                         // no label: part of the main balance
         if (!CURRENCY_META[t.currency]) { unsupported.add(t.currency); return; }
-        sums[t.currency] = (sums[t.currency] || 0) + t.amount;
+        (byCurrency[t.currency] = byCurrency[t.currency] || []).push(t);
     });
     unsupported.forEach(c => problems.push(account.name + ': has transactions in ' + c + ', which Isar doesn\'t support yet, so they aren\'t counted.'));
-    const currencies = Object.keys(sums).sort();
+    const currencies = Object.keys(byCurrency).sort();
     const reported = account.reportedCurrency || account.currency;
     let changed = false;
     const set = (key, value) => {
@@ -415,31 +470,58 @@ function splitMultiCurrencyCard(account, problems) {
         if (value === undefined) delete account[key]; else account[key] = value;
         changed = true;
     };
-
-    // Which currency the bank's single balance is in: one you set yourself; else the bank's own
-    // label when it's a real one (not the AUD it says when it says nothing); else the currency
-    // whose transactions alone best explain that balance (the one needing the smallest starting
-    // amount, ideally 0).
-    let main = account.currencyFixed;
-    if (!main && reported && reported !== 'AUD' && (sums[reported] !== undefined || !currencies.length)) main = reported;
-    // Once chosen, it stays (unless it disappears), so the accounts don't swap round between syncs.
-    if (!main && account.mainCurrency && sums[account.mainCurrency] !== undefined) main = account.mainCurrency;
-    if (!main && currencies.length) {
-        main = currencies.slice().sort((a, b) => Math.abs(account.balance - sums[a]) - Math.abs(account.balance - sums[b]))[0];
-    }
-    if (!main) main = reported;
-
-    if (currencies.length < 2) {
-        // An ordinary account. If all its transactions are in one currency that isn't the label
-        // (e.g. a CNY balance the bank called AUD), the label is corrected.
-        set('mainCurrency', currencies.length === 1 && currencies[0] !== reported && !account.currencyFixed ? currencies[0] : undefined);
+    const relabel = currency => { if (currency && account.currency !== currency) { account.currency = currency; changed = true; } };
+    const keepPurses = keep => {
+        for (let i = ACCOUNTS.length - 1; i >= 0; i--) {
+            const a = ACCOUNTS[i];
+            if (a.purseOf === account.id && !keep.includes(a.currency)) {
+                ACCOUNTS.splice(i, 1);
+                if (openAccountId === a.id) closeAccount();
+                changed = true;
+            }
+        }
+    };
+    const stopBeingACard = () => {
         if (account.cardName && account.parentName === account.cardName) set('parentName', undefined);
         set('cardCurrencies', undefined);
         set('cardName', undefined);
-        if (!account.currencyFixed) {
-            const label = account.mainCurrency || reported;
-            if (label && account.currency !== label) { account.currency = label; changed = true; }
-        }
+        keepPurses([]);
+    };
+
+    if (currencies.length < 2) {
+        // An ordinary account. If all its transactions are in one currency that isn't its label
+        // (a CNY balance the bank called AUD), and the balance fits that currency, it's relabelled.
+        const only = currencies[0];
+        const fits = only && only !== reported && !account.currencyFixed &&
+            lowestRunningBalance(byCurrency[only], account.balance - sumOf(byCurrency[only])) >= -CARD_TOLERANCE;
+        set('mainCurrency', fits ? only : undefined);
+        set('mixedCurrencies', undefined);
+        stopBeingACard();
+        if (!account.currencyFixed) relabel(account.mainCurrency || reported);
+        return changed;
+    }
+
+    // 1. Which currency the bank's balance is in.
+    let main = account.currencyFixed;
+    if (!main) {
+        const fit = currencies.filter(c => {
+            const opening = account.balance - sumOf(byCurrency[c]);
+            return opening >= -CARD_TOLERANCE && lowestRunningBalance(byCurrency[c], opening) >= -CARD_TOLERANCE;
+        });
+        // Several can fit. The one whose transactions alone add up to the balance (nothing needed
+        // from before the data starts) is the strongest evidence, if exactly one does.
+        const exact = fit.filter(c => Math.abs(account.balance - sumOf(byCurrency[c])) <= Math.max(1, Math.abs(account.balance) * 0.01));
+        if (fit.length === 1) main = fit[0];
+        else if (exact.length === 1) main = exact[0];
+        else if (fit.includes(reported) && reported !== 'AUD') main = reported;   // the bank's own (non-default) label settles a tie
+    }
+    if (!main) {
+        set('mixedCurrencies', currencies);
+        set('mainCurrency', undefined);
+        stopBeingACard();
+        if (!account.currencyFixed) relabel(reported);
+        problems.push(account.name + ': its transactions are in ' + currencies.join(', ') + ', and Isar can\'t tell for sure which currency its balance is in, ' +
+            'so it isn\'t split yet. Open it → Edit → Currency, and pick the currency the CommBank app shows for this balance.');
         return changed;
     }
 
@@ -447,12 +529,18 @@ function splitMultiCurrencyCard(account, problems) {
     set('cardName', cardName);
     set('parentName', cardName);
     set('cardCurrencies', currencies);
+    set('mixedCurrencies', undefined);
     set('mainCurrency', account.currencyFixed ? undefined : main);
-    if (account.currency !== main) { account.currency = main; changed = true; }
+    relabel(main);
 
+    // 2. AUD is funding unless it's the card's main balance.
+    const purseCurrencies = currencies.filter(c => c !== main && c !== 'AUD');
+    const loadsAUD = main === 'AUD' ? 0 : sumOf((byCurrency.AUD || []).filter(t => t.amount > 0));
+
+    // 3. Each other currency, checked one by one.
     const start = transactionDataStart(account);
     const today = localISODate(new Date());
-    currencies.filter(c => c !== main).forEach(currency => {
+    const purses = purseCurrencies.map(currency => {
         const id = account.id + ':' + currency;
         let purse = ACCOUNTS.find(a => a.id === id);
         if (!purse) {
@@ -464,7 +552,6 @@ function splitMultiCurrencyCard(account, problems) {
                 bankCountry: account.bankCountry,
                 bankName: account.bankName,
                 name: cardName + ' · ' + currency,
-                type: 'Worked out from transactions',
                 letter: account.letter,
                 color: account.color,
                 logoUrl: account.logoUrl,
@@ -477,33 +564,51 @@ function splitMultiCurrencyCard(account, problems) {
             changed = true;
         }
         Object.assign(purse, { parentName: cardName, connectionId: account.connectionId, logoUrl: account.logoUrl });
-        const history = purseHistory(account, currency, start, today, purse.opening || 0);
-        const balance = history[history.length - 1].balance;
-        if (purse.balance !== balance || JSON.stringify(purse.history) !== JSON.stringify(history)) {
-            purse.balance = balance;
-            purse.history = history;
-            changed = true;
-        }
-        if (balance < 0) {
-            problems.push(purse.name + ': worked out from transactions since ' + formatGraphDate(Date.parse(start + 'T00:00:00Z'), true) +
-                ', it comes to below zero, so the bank\'s data doesn\'t reach back to when this currency was loaded. ' +
-                'Open it and use Update balance once with what the CommBank app shows; Isar keeps adding up from there.');
-        }
+        const list = byCurrency[currency];
+        const openingSet = typeof purse.opening === 'number';
+        const opening = openingSet ? purse.opening : 0;
+        const reasons = [];
+        if (account.txPartial) reasons.push('the bank sent only part of the card\'s transactions');
+        if (list.some(t => t.signConflict)) reasons.push('some of its transactions don\'t agree on whether money went in or out');
+        if (lowestRunningBalance(list, opening) < -CARD_TOLERANCE) reasons.push('adding up its transactions goes below zero, so money loaded before the bank\'s data begins is missing');
+        const oldest = list.slice().sort((a, b) => a.date.localeCompare(b.date))[0];
+        if (!openingSet && oldest && oldest.amount < 0) reasons.push('its oldest transaction in the bank\'s data is a payment, not a top-up, so it already held money Isar can\'t see');
+        return { purse, currency, list, opening, openingSet, reasons };
     });
-    // A currency the card no longer has.
-    for (let i = ACCOUNTS.length - 1; i >= 0; i--) {
-        const a = ACCOUNTS[i];
-        if (a.purseOf === account.id && (a.currency === main || !currencies.includes(a.currency))) {
-            ACCOUNTS.splice(i, 1);
-            changed = true;
-        }
+
+    // All worked-out currencies together can't be more than was loaded onto the card.
+    if (loadsAUD > 0) {
+        const total = purses.filter(p => !p.reasons.length).reduce((sum, p) => sum + convertToBase(p.opening + sumOf(p.list), p.currency), 0);
+        const allowed = loadsAUD * 1.1 + purses.filter(p => p.openingSet).reduce((sum, p) => sum + Math.max(0, convertToBase(p.opening, p.currency)), 0);
+        if (total > allowed) purses.forEach(p => { if (!p.reasons.length) p.reasons.push('together the currencies come to more than was ever loaded onto the card'); });
     }
+
+    purses.forEach(({ purse, currency, list, opening, reasons }) => {
+        const before = JSON.stringify([purse.balance, purse.history, purse.unverified, purse.transactionsTotal, purse.type]);
+        purse.transactionsTotal = Math.round(sumOf(list) * 100) / 100;   // Update balance uses this to set the starting amount
+        if (reasons.length) {
+            // Not trustworthy: shown as Unknown, counted as nothing.
+            purse.unverified = reasons.join('; ');
+            purse.balance = 0;
+            purse.history = [];
+            purse.type = 'Unknown: can\'t be worked out yet';
+            problems.push(purse.name + ': Isar can\'t work this balance out reliably (' + purse.unverified + '). ' +
+                'Open it and use Update balance once with what the CommBank app shows; Isar keeps it up to date from there.');
+        } else {
+            delete purse.unverified;
+            purse.history = purseHistory(account, currency, start, today, opening);
+            purse.balance = purse.history[purse.history.length - 1].balance;
+            purse.type = 'Worked out from transactions';
+        }
+        if (JSON.stringify([purse.balance, purse.history, purse.unverified, purse.transactionsTotal, purse.type]) !== before) changed = true;
+    });
+    keepPurses(purseCurrencies);
     return changed;
 }
 
-// One currency of a card, day by day: `opening` where the data starts (0, unless you corrected
-// it once with Update balance), then each day's transactions added on. Rebuilt in full every
-// sync, so it always matches the transactions.
+// One currency of a card, day by day: `opening` where the data starts (0, unless you set it once
+// with Update balance), then each day's transactions added on. Rebuilt in full every sync, so
+// it always matches the transactions.
 function purseHistory(card, currency, start, today, opening) {
     const movedOn = {};
     countedTransactions(card).forEach(t => {
@@ -685,14 +790,55 @@ async function showBankRawData(connectionId) {
     openInfoScreen('What BankSync sends', '<p class="info-note">Loading…</p>');
     try {
         const data = await callServer('/api/bank-raw?connection=' + encodeURIComponent(connectionId));
+        const pre = text => '<pre style="white-space: pre-wrap; word-break: break-all; font-size: 11px; color: #D4D4D8; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; user-select: text; -webkit-user-select: text;">' + escapeHTML(text) + '</pre>';
+        const blocks = data.accounts.map(raw => {
+            const sample = raw.isarRawTransactions;
+            const account = Object.assign({}, raw);
+            delete account.isarRawTransactions;
+            return '<p class="info-note" style="text-align: left; margin-top: 14px;"><strong>' + escapeHTML(raw.name || raw.id || 'Account') + '</strong></p>' +
+                pre(JSON.stringify(account, null, 2)) +
+                (sample ? '<p class="info-note" style="text-align: left;">Its transactions, last 90 days (up to 60), and what they add up to per currency:</p>' +
+                    pre(rawTransactionSummary(raw, sample)) + pre(JSON.stringify(sample, null, 2)) : '');
+        }).join('');
         document.getElementById('info-content').innerHTML =
             '<p class="info-note" style="text-align: left;">Exactly what BankSync sends Isar for ' + escapeHTML(data.bank) +
-            ', one block per account. Isar reads <strong>balance</strong> and <strong>currency</strong>, and a list of currencies if a card has one.</p>' +
-            '<pre style="white-space: pre-wrap; word-break: break-all; font-size: 11px; color: #D4D4D8; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; user-select: text; -webkit-user-select: text;">' +
-                escapeHTML(JSON.stringify(data.accounts, null, 2)) + '</pre>';
+            ', one block per account. Isar reads <strong>balance</strong> and <strong>currency</strong>, and each transaction\'s ' +
+            '<strong>currency</strong>, <strong>creditAmount</strong> and <strong>debitAmount</strong>. Blur descriptions before sharing if you like.</p>' + blocks;
     } catch (e) {
         document.getElementById('info-content').innerHTML = '<p class="info-note">' + escapeHTML(e.message) + '</p>';
     }
+}
+
+// Per currency: how many transactions, money in, money out, and how many disagree with
+// themselves on direction (amount's sign vs credit − debit). Plus how Isar reads the account.
+// This is what settles whether a worked-out balance can be trusted.
+function rawTransactionSummary(raw, sample) {
+    if (sample.error) return 'Couldn\'t read its transactions: ' + sample.error;
+    const lines = [];
+    const perCurrency = {};
+    (sample.transactions || []).forEach(tx => {
+        const c = String(tx.currency || '(none)').toUpperCase();
+        const row = perCurrency[c] = perCurrency[c] || { count: 0, moneyIn: 0, moneyOut: 0, disagree: 0 };
+        const credit = Number(tx.creditAmount), debit = Number(tx.debitAmount), amount = Number(tx.amount);
+        const signed = isFinite(credit) && isFinite(debit) && (credit || debit) ? credit - debit : amount;
+        row.count++;
+        if (signed > 0) row.moneyIn += signed; else row.moneyOut -= signed;
+        if (isFinite(credit) && isFinite(debit) && (credit || debit) && isFinite(amount) && amount && Math.sign(amount) !== Math.sign(credit - debit)) row.disagree++;
+    });
+    Object.keys(perCurrency).sort().forEach(c => {
+        const r = perCurrency[c];
+        lines.push(c + ': ' + r.count + ' transactions · in ' + r.moneyIn.toFixed(2) + ' · out ' + r.moneyOut.toFixed(2) +
+            (r.disagree ? ' · ' + r.disagree + ' disagree on direction' : ''));
+    });
+    if (sample.meta) lines.push('More than this page: ' + (sample.meta.hasMore ? 'yes' : 'no'));
+    const isar = ACCOUNTS.find(a => a.bankAccountId === raw.id);
+    if (isar) {
+        lines.push('Isar reads its balance as: ' + (isar.currency || '?') +
+            (isar.currencyFixed ? ' (you set it)' : isar.cardCurrencies ? ' (worked out; card in ' + isar.cardCurrencies.join(', ') + ')' :
+                isar.mixedCurrencies ? ' (unsure; transactions in ' + isar.mixedCurrencies.join(', ') + ')' : ''));
+        ACCOUNTS.filter(a => a.purseOf === isar.id).forEach(p => lines.push('  ' + p.currency + ': ' + (p.unverified ? 'Unknown (' + p.unverified + ')' : formatAmount(p.balance, p.currency))));
+    }
+    return lines.join('\n') || 'No transactions in the last 90 days.';
 }
 
 // An account the server no longer lists is removed, but only when its bank answered this time,

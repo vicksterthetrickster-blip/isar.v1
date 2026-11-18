@@ -184,7 +184,8 @@ function saveLinkedAccounts() {
         txCoveredFrom: a.txCoveredFrom, balanceType: a.balanceType,                 // for past balances from transactions (bankconnect.js)
         txVersion: a.txVersion, reportedCurrency: a.reportedCurrency,
         purseOf: a.purseOf, cardName: a.cardName, cardCurrencies: a.cardCurrencies, // multi-currency cards (bankconnect.js)
-        mainCurrency: a.mainCurrency, opening: a.opening
+        mainCurrency: a.mainCurrency, opening: a.opening, transactionsTotal: a.transactionsTotal,
+        unverified: a.unverified, mixedCurrencies: a.mixedCurrencies, txPartial: a.txPartial
     }));
     saveData();
 }
@@ -220,7 +221,8 @@ function updateLinkedAccount(id, changes) {
         // One currency of a card, added up from its transactions: a typed balance corrects its
         // starting amount once (money loaded before the bank's data begins). From then on the
         // transactions keep it up to date by themselves (bankconnect.js).
-        account.opening = (account.opening || 0) + (changes.balance - account.balance);
+        // starting amount = what it really holds now − what its transactions add up to
+        account.opening = Math.round((changes.balance - (account.transactionsTotal || 0)) * 100) / 100;
         const card = ACCOUNTS.find(a => a.id === account.purseOf);
         if (card) splitMultiCurrencyCard(card, []);
     } else if (typeof changes.balance === 'number' && isFinite(changes.balance)) {

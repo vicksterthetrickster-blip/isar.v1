@@ -2,7 +2,10 @@
 
 // --- Render everything that shows an account balance from ACCOUNTS ---
 // Native-currency display of an account balance (symbol + amount + currency code).
+// `unverified`: one currency of a card that Isar couldn't work out reliably (bankconnect.js).
+// It shows as Unknown rather than a made-up number, and counts as nothing in totals.
 function formatAccountBalance(account) {
+    if (account.unverified) return 'Unknown ' + account.currency;
     return formatAmount(account.balance, account.currency);
 }
 
@@ -15,7 +18,7 @@ function formatAmount(amount, code, wholeNumber) {
 // "≈ $58,366 AUD": the balance in the currency chosen on the net worth card.
 // Empty when the account is already in that currency.
 function formatConvertedBalance(account) {
-    if (account.currency === activeCurrency) return '';
+    if (account.currency === activeCurrency || account.unverified) return '';
     const value = convertFromBase(convertToBase(account.balance, account.currency), activeCurrency);
     return '≈ ' + formatAmount(value, activeCurrency, true);
 }
@@ -244,6 +247,7 @@ function renderAccountTimeframes() {
 
 // "$5,300.00 EUR": an account's balance converted into any currency, using live rates.
 function formatAccountBalanceIn(account, code) {
+    if (account.unverified) return 'Unknown';
     return formatAmount(convertFromBase(convertToBase(account.balance, account.currency), code), code);
 }
 
