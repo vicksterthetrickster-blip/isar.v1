@@ -213,6 +213,7 @@ async function connectToBank(bank) {
 // Runs first thing on start-up (main.js), signed in or not. Cleans the address and keeps the
 // code until someone is signed in to finish with it.
 function takeBankReturn() {
+    if (takeSnapTradeReturn()) return;
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
     const state = params.get('state');
@@ -221,6 +222,29 @@ function takeBankReturn() {
     history.replaceState(null, '', location.pathname);
     if (error) return showToast('The bank didn\'t connect: ' + (params.get('error_description') || error));
     try { localStorage.setItem(BANK_RETURN_KEY, JSON.stringify({ code: code, state: state, at: Date.now() })); } catch (e) {}
+}
+
+// Back from SnapTrade's connection screen (CommSec): ?provider=snaptrade&state=… plus SnapTrade's
+// own status=SUCCESS&connection_id=… (or status=ERROR / ABANDONED). Each value is picked out on
+// its own, so it works however SnapTrade adds its part to the address. The connection id is
+// the "code" the server finishes with (api/_provider-snaptrade.js).
+function takeSnapTradeReturn() {
+    const address = location.search;
+    if (!/[?&]provider=snaptrade\b/.test(address)) return false;
+    const value = key => {
+        const match = address.match(new RegExp('[?&]' + key + '=([^&#?]*)'));
+        return match ? decodeURIComponent(match[1]) : '';
+    };
+    history.replaceState(null, '', location.pathname);
+    const status = value('status').toUpperCase();
+    const state = value('state');
+    if (status === 'ABANDONED') { showToast('CommSec wasn\'t connected'); return true; }
+    if (status !== 'SUCCESS' || !state) {
+        showToast('SnapTrade didn\'t connect' + (value('error_code') ? ' (' + value('error_code') + ')' : '') + '. Try again.');
+        return true;
+    }
+    try { localStorage.setItem(BANK_RETURN_KEY, JSON.stringify({ code: value('connection_id') || 'latest', state: state, at: Date.now() })); } catch (e) {}
+    return true;
 }
 
 function pendingBankReturn() {
@@ -412,7 +436,9 @@ async function syncConnectedBanks() {
         });
         if (removeAccountsNoLongerListed(data.accounts)) changed = true;
 
-        for (const account of ACCOUNTS.filter(a => a.bankAccountId)) {
+        // Brokers (SnapTrade) have holdings instead: an investment's value moves with prices,
+        // so its past can't be worked out from payments.
+        for (const account of ACCOUNTS.filter(a => a.bankAccountId && a.group !== 'investments')) {
             if (await syncBankTransactions(account)) changed = true;
             if (rebuildHistoryFromTransactions(account)) changed = true;
         }
@@ -437,6 +463,7 @@ function applyIncomingAccount(incoming) {
     }
     if (incoming.error === 'consent_expired') return 'consent_expired';
     if (incoming.error) return bankAccountLabel(incoming) + ': ' + bankErrorText(incoming.error);
+    if (incoming.investments) return applyIncomingInvestment(incoming);
     if (typeof incoming.balance !== 'number' || !Number.isFinite(incoming.balance)) {
         return bankAccountLabel(incoming) + ': the bank didn\'t send a balance.';
     }
@@ -495,16 +522,89 @@ function applyIncomingAccount(incoming) {
     return 'changed';
 }
 
+// A broker account (SnapTrade: CommSec). Same as a bank account, plus its holdings: they're
+// replaced with the broker's on every sync, and the balance is worked out from them
+// (holdings.js), so the account screen and net worth always agree. With no holdings, the
+// broker's own total is used. A holding that couldn't be read is reported, never hidden.
+function applyIncomingInvestment(incoming) {
+    const label = bankAccountLabel(incoming);
+    const holdings = Array.isArray(incoming.holdings)
+        ? incoming.holdings.map((h, i) => Object.assign({}, h, { id: 'p-' + incoming.uid + '-' + i, priceSource: 'provider', priceAsOf: new Date().toISOString() }))
+        : [];
+    const valid = holdings.filter(isValidHolding);
+    const skipped = (incoming.holdingsSkipped || []).concat(holdings.filter(h => !isValidHolding(h)).map(h => h.symbol + ' (' + h.currency + ')'));
+    const problem = skipped.length ? label + ': some holdings couldn\'t be read and aren\'t counted: ' + skipped.join(', ') + '.' : null;
+
+    const currency = String(incoming.currency || '').toUpperCase();
+    if (!CURRENCY_META[currency]) return label + ': Isar doesn\'t support the currency "' + (incoming.currency || 'none') + '" yet.';
+    const total = valid.length ? holdingsTotal(valid, currency) : incoming.balance;
+    if (typeof total !== 'number' || !Number.isFinite(total)) return label + ': SnapTrade didn\'t send a value.';
+
+    let account = ACCOUNTS.find(a => a.provider === incoming.provider && a.bankAccountId === incoming.uid);
+    let changed = false;
+    if (!account) {
+        const bankName = String(incoming.bank || 'Broker');
+        const today = localISODate(new Date());
+        account = {
+            id: incoming.provider + '-' + incoming.uid,
+            provider: incoming.provider,
+            bankAccountId: incoming.uid,
+            connectionId: incoming.connectionId,
+            bankCountry: incoming.country,
+            bankName: bankName,
+            name: incoming.name || bankName,
+            type: 'Connected broker',
+            group: 'investments',
+            letter: (Array.from(bankName)[0] || 'B').toUpperCase(),
+            color: '#1E1E24',
+            logoUrl: incoming.logo,
+            balance: total,
+            currency: currency,
+            addedDate: today,
+            history: [{ date: today, time: currentTimeHHMM(), balance: total }],
+            historySource: 'bank',
+            userLinked: true
+        };
+        ACCOUNTS.push(account);
+        changed = true;
+    }
+    if (account.logoUrl !== incoming.logo) { account.logoUrl = incoming.logo; changed = true; }
+    if (account.currency !== currency) { account.currency = currency; changed = true; }
+    if (JSON.stringify((account.holdings || []).map(holdingKey)) !== JSON.stringify(valid.map(holdingKey))) {
+        account.holdings = valid;
+        account.holdingsSource = 'provider';
+        changed = true;
+    }
+    if (account.balance !== total) {
+        account.balance = total;
+        recordBalanceToday(account);
+        changed = true;
+    }
+    // A problem is shown, but the account is still updated with what could be read, so save it.
+    if (problem) { if (changed) { saveLinkedAccounts(); refreshAfterAccountChange(); } return problem; }
+    return changed ? 'changed' : null;
+}
+
+// What makes one holding different from another (not its id or time stamp).
+function holdingKey(h) {
+    return [h.symbol, h.kind, h.quantity, h.price, h.currency].join('|');
+}
+
 // "What BankSync sends": the provider's own data for this bank, exactly as it arrives, so a
 // reading problem (a wrong currency, a missing balance) can be seen instead of guessed.
 // Account numbers are cut to the last 4 by the server.
 async function showBankRawData(connectionId) {
-    openInfoScreen('What BankSync sends', '<p class="info-note">Loading…</p>');
+    const account = ACCOUNTS.find(a => a.connectionId === connectionId);
+    const broker = !!account && account.provider === 'snaptrade';
+    const source = broker ? 'SnapTrade' : 'BankSync';
+    openInfoScreen('What ' + source + ' sends', '<p class="info-note">Loading…</p>');
     try {
         const data = await callServer('/api/bank-raw?connection=' + encodeURIComponent(connectionId));
         document.getElementById('info-content').innerHTML =
-            '<p class="info-note" style="text-align: left;">Exactly what BankSync sends Isar for ' + escapeHTML(data.bank) +
-            ', one block per account. Isar reads <strong>balance</strong> and <strong>currency</strong>, and a list of currencies if a card has one.</p>' +
+            '<p class="info-note" style="text-align: left;">Exactly what ' + source + ' sends Isar for ' + escapeHTML(data.bank) + ', one block per account. ' +
+            (broker
+                ? 'Isar reads each position\'s <strong>symbol</strong>, <strong>units</strong>, <strong>price</strong> and <strong>currency</strong> (isarRawPositions), cash (isarRawBalances), and <strong>net_value</strong> when there are no positions.</p>'
+                : 'Isar reads <strong>balance</strong> and <strong>currency</strong>, and a list of currencies if a card has one.</p>') +
             '<pre style="white-space: pre-wrap; word-break: break-all; font-size: 11px; color: #D4D4D8; background: #121216; border: 1px solid #27272A; border-radius: 12px; padding: 12px; user-select: text; -webkit-user-select: text;">' +
                 escapeHTML(JSON.stringify(data.accounts, null, 2)) + '</pre>';
     } catch (e) {

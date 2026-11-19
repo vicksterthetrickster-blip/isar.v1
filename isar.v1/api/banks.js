@@ -7,7 +7,7 @@
 // information, so this endpoint doesn't require signing in. Everything that touches YOUR money
 // does — see requireUser in _server.js.
 
-import { providerForCountry } from './_providers.js';
+import { providerForCountry, extraProvidersForCountry } from './_providers.js';
 import { requireUser } from './_server.js';
 
 export default async function handler(request, response) {
@@ -31,6 +31,11 @@ export default async function handler(request, response) {
 
     try {
         const banks = (await provider.listBanks(country, { user })).map(bank => ({ ...bank, provider: provider.name }));
+        // Brokers (SnapTrade: CommSec) are listed after the banks. Each lists itself without
+        // asking its service, so it can't break the bank list.
+        for (const extra of extraProvidersForCountry(country)) {
+            (await extra.listBanks(country, { user })).forEach(bank => banks.push({ ...bank, provider: extra.name }));
+        }
         response.status(200).json({ ok: true, country, count: banks.length, banks });
     } catch (error) {
         if (error.code === 'owner_only') return response.status(403).json({ ok: false, error: error.message });

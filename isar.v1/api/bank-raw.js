@@ -3,8 +3,8 @@
 // GET /api/bank-raw?connection=<bank_connections id>
 // For when an account reads wrong (wrong currency, a missing balance): instead of guessing,
 // the app shows the provider's own data on screen ("What BankSync sends"). Read-only.
-// Only your own connections (read as you), and only providers that offer it (BankSync, which
-// is owner-only, so its own check refuses anyone else). Account numbers are cut to the last 4.
+// Only your own connections (read as you), and only providers that offer it (BankSync and
+// SnapTrade, both owner-only, so their own check refuses anyone else). Account numbers are cut to the last 4.
 
 import { requireUser, readRowsAsUser } from './_server.js';
 import { providerOf } from './_providers.js';
@@ -31,7 +31,7 @@ export default async function handler(request, response) {
 
     try {
         const accounts = await provider.rawAccounts({ connection, request, user });
-        response.status(200).json({ ok: true, bank: connection.bank_name, accounts: accounts });
+        response.status(200).json({ ok: true, bank: connection.bank_name, provider: provider.name, accounts: accounts });
     } catch (error) {
         response.status(error.code === 'owner_only' ? 403 : 502).json({ ok: false, error: error.message });
     }

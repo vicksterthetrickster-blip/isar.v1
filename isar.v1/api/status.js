@@ -12,7 +12,8 @@
 // The env var names the later bank/price functions will look for:
 //   ENABLE_BANKING_APP_ID, ENABLE_BANKING_PRIVATE_KEY   (imagin, CaixaBank — EU/UK)
 //   BANKSYNC_API_KEY                                     (CommBank, Revolut AU — owner only)
-//   ISAR_OWNER_USER_ID                                   (the one Isar user id allowed to use BankSync)
+//   ISAR_OWNER_USER_ID                                   (the one Isar user id allowed to use BankSync and SnapTrade)
+//   SNAPTRADE_CLIENT_ID, SNAPTRADE_CONSUMER_KEY          (CommSec, through SnapTrade Personal — owner only)
 //   PRICE_API_KEY                                        (share and ETF prices)
 
 // The Supabase project. Both values are public by design (same ones as in js/auth.js);
@@ -30,6 +31,7 @@ export default async function handler(request, response) {
         providers: {
             enableBanking: !!(process.env.ENABLE_BANKING_APP_ID && process.env.ENABLE_BANKING_PRIVATE_KEY),
             banksync: !!process.env.BANKSYNC_API_KEY,
+            snaptrade: !!(process.env.SNAPTRADE_CLIENT_ID && process.env.SNAPTRADE_CONSUMER_KEY),
             ownerSet: !!process.env.ISAR_OWNER_USER_ID,
             prices: !!process.env.PRICE_API_KEY
         }

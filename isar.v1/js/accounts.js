@@ -150,7 +150,7 @@ function renderBankDetail() {
         '</div>' +
         '<div class="group-head"><span>Accounts</span><span></span></div>' +
         bankAccountListHTML(ordered) +
-        (first.provider === 'banksync' && first.connectionId ? bankRawButtonHTML(first.connectionId) : '');
+        ((first.provider === 'banksync' || first.provider === 'snaptrade') && first.connectionId ? bankRawButtonHTML(first.connectionId, first.provider) : '');
 }
 
 // A card holding several currencies (CommBank Travel Money) shows as its own heading with its
@@ -169,9 +169,10 @@ function bankAccountListHTML(ordered) {
     }).join('');
 }
 
-function bankRawButtonHTML(connectionId) {
+function bankRawButtonHTML(connectionId, provider) {
     return '<button class="interactive-btn" onclick="showBankRawData(\'' + connectionId + '\')" style="' + ACCT_BTN_STYLE +
-        'flex: none; width: 100%; margin-top: 12px; background: #18181B; color: #A1A1AA; border: 1px solid #27272A;">What BankSync sends</button>';
+        'flex: none; width: 100%; margin-top: 12px; background: #18181B; color: #A1A1AA; border: 1px solid #27272A;">What ' +
+        (provider === 'snaptrade' ? 'SnapTrade' : 'BankSync') + ' sends</button>';
 }
 
 // Rows are redrawn on their own so changing

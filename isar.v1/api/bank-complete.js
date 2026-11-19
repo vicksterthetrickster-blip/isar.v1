@@ -31,7 +31,9 @@ export default async function handler(request, response) {
     try {
         const result = await provider.completeConnect({ code, request, user });
         // A connection with no accounts would look connected but never show anything. Say so instead.
-        if (!result.accounts.length) {
+        // (A broker through SnapTrade can need a few minutes for its first read: it's saved
+        // anyway, and its accounts appear on a later sync.)
+        if (!result.accounts.length && !result.accountsMayFollow) {
             return response.status(422).json({ ok: false, error: result.bankName + ' connected, but it shared no accounts with Isar. Check the accounts you allowed, then connect again.' });
         }
         // Linking the same bank again refreshes its saved accounts (so a bad save can always be

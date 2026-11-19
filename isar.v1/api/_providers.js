@@ -6,8 +6,9 @@
 
 import * as enablebanking from './_provider-enablebanking.js';
 import * as banksync from './_provider-banksync.js';
+import * as snaptrade from './_provider-snaptrade.js';
 
-const PROVIDERS = { enablebanking, banksync };
+const PROVIDERS = { enablebanking, banksync, snaptrade };
 
 // Europe and the UK (PSD2) go through Enable Banking.
 const PROVIDER_BY_COUNTRY = {};
@@ -15,6 +16,9 @@ const PROVIDER_BY_COUNTRY = {};
     .forEach(country => { PROVIDER_BY_COUNTRY[country] = 'enablebanking'; });
 // Australia (CDR) goes through BankSync, which only ever answers for the owner (see its file).
 PROVIDER_BY_COUNTRY.AU = 'banksync';
+// Extra providers listed alongside a country's banks: brokers, which open banking doesn't cover.
+// SnapTrade (CommSec), also owner only.
+const EXTRA_PROVIDERS_BY_COUNTRY = { AU: ['snaptrade'] };
 
 export function getProvider(name) {
     return Object.hasOwn(PROVIDERS, name) ? PROVIDERS[name] : null;
@@ -22,6 +26,10 @@ export function getProvider(name) {
 
 export function providerForCountry(country) {
     return getProvider(PROVIDER_BY_COUNTRY[country]);
+}
+
+export function extraProvidersForCountry(country) {
+    return (EXTRA_PROVIDERS_BY_COUNTRY[country] || []).map(getProvider).filter(Boolean);
 }
 
 // Connections saved before providers were recorded are all Enable Banking.

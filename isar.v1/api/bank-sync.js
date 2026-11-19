@@ -37,6 +37,7 @@ async function syncConnection(connection, request, user) {
         connectionId: connection.id,            // the app groups a bank's accounts by this (not a secret)
         bank: connection.bank_name || 'Bank',
         country: connection.bank_country,
+        investments: !!(provider && provider.investments),   // a broker (SnapTrade): Investments, with holdings
         logo: null
     };
     try { base.logo = provider ? provider.logoFor(connection) : null; } catch (e) { /* no logo is fine */ }

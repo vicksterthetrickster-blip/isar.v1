@@ -84,12 +84,17 @@ function revalueHoldings() {
         if (!Array.isArray(account.holdings)) return;
         account.holdings = account.holdings.filter(isValidHolding);
         if (!account.holdings.length) return;
-        const total = Math.round(account.holdings.reduce((sum, h) => sum + holdingValueIn(h, account.currency), 0) * 100) / 100;
+        const total = holdingsTotal(account.holdings, account.currency);
         if (total === account.balance) return;
         account.balance = total;
         if (account.userLinked) { recordBalanceToday(account); changed = true; }
     });
     if (changed) saveLinkedAccounts();
+}
+
+// What a list of holdings is worth in `code`, at today's prices and exchange rates, to the cent.
+function holdingsTotal(holdings, code) {
+    return Math.round(holdings.reduce((sum, h) => sum + holdingValueIn(h, code), 0) * 100) / 100;
 }
 
 // Same as typing a new balance: today's entry is updated, or added if there isn't one yet.
