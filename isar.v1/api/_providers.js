@@ -16,9 +16,9 @@ const PROVIDER_BY_COUNTRY = {};
     .forEach(country => { PROVIDER_BY_COUNTRY[country] = 'enablebanking'; });
 // Australia (CDR) goes through BankSync, which only ever answers for the owner (see its file).
 PROVIDER_BY_COUNTRY.AU = 'banksync';
-// Extra providers listed alongside a country's banks: brokers, which open banking doesn't cover.
-// SnapTrade (CommSec), also owner only.
-const EXTRA_PROVIDERS_BY_COUNTRY = { AU: ['snaptrade'] };
+// Extra providers listed after every country's banks: brokers and crypto exchanges, which open
+// banking doesn't cover. SnapTrade (CommSec, Moomoo, Coinbase…) works in any country; owner only.
+const EXTRA_PROVIDERS = ['snaptrade'];
 
 export function getProvider(name) {
     return Object.hasOwn(PROVIDERS, name) ? PROVIDERS[name] : null;
@@ -28,8 +28,8 @@ export function providerForCountry(country) {
     return getProvider(PROVIDER_BY_COUNTRY[country]);
 }
 
-export function extraProvidersForCountry(country) {
-    return (EXTRA_PROVIDERS_BY_COUNTRY[country] || []).map(getProvider).filter(Boolean);
+export function extraProvidersForCountry() {
+    return EXTRA_PROVIDERS.map(getProvider).filter(Boolean);
 }
 
 // Connections saved before providers were recorded are all Enable Banking.

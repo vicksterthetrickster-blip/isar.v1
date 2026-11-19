@@ -31,8 +31,10 @@ export default async function handler(request, response) {
 
     try {
         const banks = (await provider.listBanks(country, { user })).map(bank => ({ ...bank, provider: provider.name }));
-        // Brokers (SnapTrade: CommSec) are listed after the banks. Each lists itself without
-        // asking its service, so it can't break the bank list.
+        // Brokers and crypto exchanges (SnapTrade) are listed after the banks, in every country.
+        // Each lists itself without asking its service, so it can't break the bank list. They're
+        // owner only, so the sign-in is checked here too (signed out = just the banks).
+        if (!user) user = await requireUser(request);
         for (const extra of extraProvidersForCountry(country)) {
             (await extra.listBanks(country, { user })).forEach(bank => banks.push({ ...bank, provider: extra.name }));
         }

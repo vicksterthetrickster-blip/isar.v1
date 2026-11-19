@@ -224,7 +224,7 @@ function takeBankReturn() {
     try { localStorage.setItem(BANK_RETURN_KEY, JSON.stringify({ code: code, state: state, at: Date.now() })); } catch (e) {}
 }
 
-// Back from SnapTrade's connection screen (CommSec): ?provider=snaptrade&state=… plus SnapTrade's
+// Back from SnapTrade's connection screen (a broker or crypto exchange): ?provider=snaptrade&state=… plus SnapTrade's
 // own status=SUCCESS&connection_id=… (or status=ERROR / ABANDONED). Each value is picked out on
 // its own, so it works however SnapTrade adds its part to the address. The connection id is
 // the "code" the server finishes with (api/_provider-snaptrade.js).
@@ -238,7 +238,7 @@ function takeSnapTradeReturn() {
     history.replaceState(null, '', location.pathname);
     const status = value('status').toUpperCase();
     const state = value('state');
-    if (status === 'ABANDONED') { showToast('CommSec wasn\'t connected'); return true; }
+    if (status === 'ABANDONED') { showToast('The broker wasn\'t connected'); return true; }
     if (status !== 'SUCCESS' || !state) {
         showToast('SnapTrade didn\'t connect' + (value('error_code') ? ' (' + value('error_code') + ')' : '') + '. Try again.');
         return true;
@@ -522,7 +522,7 @@ function applyIncomingAccount(incoming) {
     return 'changed';
 }
 
-// A broker account (SnapTrade: CommSec). Same as a bank account, plus its holdings: they're
+// A broker or crypto exchange account (SnapTrade: CommSec, Moomoo, Coinbase…). Same as a bank account, plus its holdings: they're
 // replaced with the broker's on every sync, and the balance is worked out from them
 // (holdings.js), so the account screen and net worth always agree. With no holdings, the
 // broker's own total is used. A holding that couldn't be read is reported, never hidden.

@@ -1,4 +1,5 @@
-// api/_provider-snaptrade.js — the SnapTrade adapter (CommSec and other brokers). OWNER ONLY.
+// api/_provider-snaptrade.js — the SnapTrade adapter (brokers and crypto exchanges: CommSec,
+// Moomoo, Coinbase…). OWNER ONLY.
 //
 // Same functions as the bank adapters (see _provider-banksync.js), so the same endpoints, the
 // same "Connect a bank" list and the same sync handle it. What's different:
@@ -15,8 +16,8 @@
 //   SNAPTRADE_USER_ID, SNAPTRADE_USER_SECRET       only if SnapTrade's dashboard gives you a user too
 //                                                  (Personal keys normally don't need one)
 //
-// Connecting: Isar asks SnapTrade for a one-off link to its Connection Portal. You pick CommSec
-// there and log in on SnapTrade's screen (not CommSec's own site, and not Isar's). SnapTrade
+// Connecting: Isar asks SnapTrade for a one-off link to its Connection Portal. You pick your
+// broker there and log in through SnapTrade's screen (never Isar's). SnapTrade
 // sends you back to Isar with ?status=SUCCESS&connection_id=… and the signed ticket.
 
 import { createHmac } from 'crypto';
@@ -143,12 +144,17 @@ async function connections(user) {
     return asList(await cachedGet('/authorizations', user)).filter(c => c && c.id);
 }
 
-// --- The list in "Connect a bank" (Australia): one entry, no SnapTrade request needed ---
+// --- The entries in "Connect a bank", after any country's banks. No SnapTrade request needed. ---
+// Each opens the same SnapTrade screen, where you pick the broker; the names are there so
+// searching "coinbase" or "moomoo" in the Add tab finds it. The saved connection is named after
+// the broker you actually picked.
+const BROKER_ENTRIES = ['CommSec', 'Moomoo', 'Coinbase', 'Other broker or crypto exchange'];
+
 export async function listBanks(country, { user } = {}) {
-    if (country !== 'AU' || !isOwner(user)) return [];
-    let note = 'Investments, through SnapTrade · you log in on SnapTrade\'s screen';
+    if (!isOwner(user)) return [];
+    let note = 'Investments, through SnapTrade · pick it on SnapTrade\'s screen';
     try { keys(); } catch (e) { note = 'SnapTrade keys aren\'t set in Vercel yet'; }
-    return [{ name: 'CommSec', country: 'AU', logo: null, maxConsentDays: null, bankId: 'snaptrade', note: note }];
+    return BROKER_ENTRIES.map(name => ({ name: name, country: country, kind: 'broker', logo: null, maxConsentDays: null, bankId: 'snaptrade', note: note }));
 }
 
 // --- Connecting: a one-off link (lasts 5 minutes) to SnapTrade's Connection Portal ---
@@ -270,7 +276,7 @@ async function holdingsOf(accountId, user) {
 
 export async function getBalance({ account, user }) {
     const found = (await allAccounts(user)).find(a => a.id === (account.accountId || account.uid));
-    if (!found) throw new Error('SnapTrade no longer lists this account. Connect CommSec again in Isar.');
+    if (!found) throw new Error('SnapTrade no longer lists this account. Connect the broker again in Isar.');
     const value = numberOrNaN(found.net_value && found.net_value.amount);
     const currency = upper(found.net_value && found.net_value.currency) || account.currency;
     let held = { holdings: null, skipped: [] };
